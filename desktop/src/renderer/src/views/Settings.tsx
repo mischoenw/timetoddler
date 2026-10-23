@@ -47,6 +47,11 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
             <option value="manual">manuell („Tag/Woche buchen“)</option>
             <option value="onStop">automatisch beim Stoppen</option>
           </select>
+          <span />
+          <label className="check">
+            <input type="checkbox" checked={s['youtrack.pull']} onChange={(e) => set({ 'youtrack.pull': e.target.checked })} />
+            Buchungen aus YouTrack holen (eigene, letzte 31 Tage)
+          </label>
         </div>
         <p className="muted">
           Token in YouTrack unter Profil → Konto-Sicherheit → Token anlegen (Bereich YouTrack). Er wird mit dem Schlüsselbund des Systems verschlüsselt
@@ -62,6 +67,7 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
             <span>
               Status: {sync.authError ? <b className="err">Anmeldung abgelehnt – Token prüfen</b> : 'ok'} · {sync.pending} ausstehend · {sync.errors} Fehler
               {sync.lastRun && ` · zuletzt ${new Date(sync.lastRun).toLocaleTimeString('de-DE')}`}
+              {sync.lastPull && ` · geholt ${new Date(sync.lastPull).toLocaleTimeString('de-DE')}`}
             </span>
             <button onClick={() => run(() => api.syncNow(), 'Synchronisiere…')}>Jetzt synchronisieren</button>
             {sync.errors > 0 && <button onClick={() => run(() => api.retryErrors(), (n) => `${n} erneut eingereiht`)}>Fehler erneut versuchen</button>}

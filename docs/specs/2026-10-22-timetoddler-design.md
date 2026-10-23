@@ -197,7 +197,7 @@ Partitionen: einfache Tabelle (`factory` 3 MB, `nvs`), da kein OTA. Eigenständi
 
 ### Sync und YouTrack-Anbindung
 
-**Grundsatz:** Die lokale Datenbank ist führend, die App funktioniert ohne Sync vollständig. Sync ist ein **Einweg-Push** lokaler Einträge plus das Lesen von Stammdaten (Projekte, Tickets). Änderungen an Work Items direkt in YouTrack holt die App nicht zurück.
+**Grundsatz:** Die lokale Datenbank ist führend, die App funktioniert ohne Sync vollständig. Sync pusht lokale Einträge, liest Stammdaten (Projekte, Tickets) und holt eigene Work Items zurück (Zwei-Wege-Sync, siehe `2026-10-23-youtrack-two-way-sync-design.md`); bei Konflikten gewinnt die App.
 
 **Connector-Schnittstelle** (Main-Prozess, damit später weitere Ziele wie Jira oder ein eigenes Backend andocken können):
 

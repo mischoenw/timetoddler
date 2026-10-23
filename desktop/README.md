@@ -29,6 +29,7 @@ npm run dist       # Installer nach dist/ (Windows NSIS, macOS dmg, Linux AppIma
 
 - Ein Work Item pro Eintrag und Tag, ganze Minuten (kaufmännisch gerundet, min. 1), Notiz = Text.
 - Nach dem Buchen geänderte Einträge werden aktualisiert, Ticketwechsel ersetzt das Work Item, Löschen entfernt es.
+- Zurück aus YouTrack (alle 10 min und bei „Jetzt synchronisieren“, abschaltbar): eigene Work Items der letzten 31 Tage. Änderungen an gebuchten Einträgen werden übernommen (lokale Änderungen gehen vor), in YouTrack gelöschte werden wieder „offen“, neue Buchungen auf dem Ticket einer Kachel erscheinen als Eintrag hinter dem letzten Eintrag des Tages.
 - Netz- und Serverfehler: automatische Wiederholung (30 s bis 30 min). 401/403 stoppt die Synchronisation bis „Verbinden & testen“.
 - Der Token liegt verschlüsselt (Schlüsselbund des Systems) in `userData/youtrack.token`, nicht in der Datenbank.
 

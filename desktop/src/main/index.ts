@@ -116,7 +116,10 @@ async function main(): Promise<void> {
   })
 
   const runSync = (): void => {
-    void queue.runOnce().finally(notify)
+    void queue
+      .runOnce()
+      .then(() => queue.pullOnce())
+      .finally(notify)
   }
   setInterval(runSync, SYNC_INTERVAL_MS)
   const refresh = (): void => {

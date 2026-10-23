@@ -187,6 +187,7 @@ export interface SyncStatus {
   pending: number
   errors: number
   lastRun: number | null
+  lastPull: number | null
 }
 
 export interface DayView {

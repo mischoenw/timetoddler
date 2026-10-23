@@ -38,7 +38,8 @@ export function syncStatus(deps: Pick<ApiDeps, 'svc' | 'tokens' | 'queue'>): Syn
     lastError: deps.queue.lastError,
     pending: repo.countBookings(CONNECTOR, ['pending', 'delete']),
     errors: repo.countBookings(CONNECTOR, ['error']),
-    lastRun: deps.queue.lastRun
+    lastRun: deps.queue.lastRun,
+    lastPull: deps.queue.lastPull
   }
 }
 
@@ -159,7 +160,10 @@ export function createApi(deps: ApiDeps): MainApi {
     },
     syncNow: () => {
       queue.resetAuth()
-      kick()
+      void queue
+        .runOnce()
+        .then(() => queue.pullOnce(true))
+        .finally(deps.notify)
     },
 
     exportCsv: async (kind, from, to) => {
