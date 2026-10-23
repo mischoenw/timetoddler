@@ -161,6 +161,15 @@ export interface QuerySuggestion {
   description: string
 }
 
+/** Own work item from YouTrack; `day` is local `YYYY-MM-DD`. */
+export interface RemoteWorkItem {
+  id: string
+  issue: string
+  day: string
+  minutes: number
+  text: string
+}
+
 export interface RemoteWorkType {
   id: string
   name: string

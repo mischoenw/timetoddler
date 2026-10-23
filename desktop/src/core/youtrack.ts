@@ -1,4 +1,5 @@
-import type { QuerySuggestion, RemoteIssue, RemoteProject, RemoteWorkType } from '@shared/types'
+import type { QuerySuggestion, RemoteIssue, RemoteProject, RemoteWorkItem, RemoteWorkType } from '@shared/types'
+import { localDay } from '@shared/timecalc'
 
 export type YouTrackErrorKind = 'auth' | 'notfound' | 'client' | 'server' | 'network'
 
@@ -135,6 +136,19 @@ export class YouTrackClient {
     return ts.map((t) => ({ id: t.id, name: t.name }))
   }
 
+  /** Own work items dated in [fromDay, toDay] (`YYYY-MM-DD`), all pages. */
+  async listMyWorkItems(fromDay: string, toDay: string, pageSize = 500): Promise<RemoteWorkItem[]> {
+    const out: RemoteWorkItem[] = []
+    for (let skip = 0; ; skip += pageSize) {
+      const page = await this.request<WorkItemDto[]>(
+        'GET',
+        `/workItems?author=me&startDate=${fromDay}&endDate=${toDay}&fields=${WORK_ITEM_FIELDS}&$top=${pageSize}&$skip=${skip}`
+      )
+      out.push(...page.map(toWorkItem))
+      if (page.length < pageSize) return out
+    }
+  }
+
   async createWorkItem(d: WorkItemDraft): Promise<string> {
     const r = await this.request<{ id: string }>(
       'POST',
@@ -174,6 +188,31 @@ const toIssue = (i: IssueDto): RemoteIssue => ({
   resolved: i.resolved != null,
   projectId: i.project?.id ?? '',
   projectKey: i.project?.shortName ?? ''
+})
+
+const WORK_ITEM_FIELDS = 'id,date,duration(minutes),text,issue(idReadable)'
+
+interface WorkItemDto {
+  id: string
+  date: number
+  duration: { minutes: number } | null
+  text: string | null
+  issue: { idReadable: string } | null
+}
+
+/** Days entered in YouTrack are stored as UTC midnight; items booked by the app keep their local start time. */
+function workItemDay(ms: number): string {
+  const d = new Date(ms)
+  const utcMidnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+  return utcMidnight ? d.toISOString().slice(0, 10) : localDay(ms)
+}
+
+const toWorkItem = (w: WorkItemDto): RemoteWorkItem => ({
+  id: w.id,
+  issue: w.issue?.idReadable ?? '',
+  day: workItemDay(w.date),
+  minutes: w.duration?.minutes ?? 0,
+  text: w.text ?? ''
 })
 
 function workItemBody(d: WorkItemDraft): Record<string, unknown> {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { normalizeBaseUrl, YouTrackClient, YouTrackError } from '@core/youtrack'
+import { at } from './helpers'
 
 function client(handler: (url: string, init: RequestInit) => Response) {
   const f = vi.fn(async (url: string | URL | Request, init?: RequestInit) => handler(String(url), init ?? {}))
@@ -44,6 +45,33 @@ describe('YouTrackClient', () => {
     expect(f.mock.calls[0][0]).toMatch(/^https:\/\/yt\.example\.com\/api\/search\/assist\?fields=/)
     expect(f.mock.calls[0][1]!.method).toBe('POST')
     expect(JSON.parse(f.mock.calls[0][1]!.body as string)).toEqual({ query: '#Unr', caret: 4 })
+  })
+
+  it('lists own work items page by page and maps the day', async () => {
+    const page = (n: number, offset: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `w-${offset + i}`,
+        date: Date.UTC(2026, 9, 21),
+        duration: { minutes: 30 },
+        text: null,
+        issue: { idReadable: 'ABC-1' }
+      }))
+    const { f, c } = client((url) => json(url.includes('$skip=0') ? page(2, 0) : page(1, 2)))
+    const items = await c.listMyWorkItems('2026-09-21', '2026-10-21', 2)
+    expect(items).toHaveLength(3)
+    expect(items[0]).toEqual({ id: 'w-0', issue: 'ABC-1', day: '2026-10-21', minutes: 30, text: '' })
+    expect(f).toHaveBeenCalledTimes(2)
+    expect(f.mock.calls[0][0]).toContain('/api/workItems?author=me&startDate=2026-09-21&endDate=2026-10-21')
+    expect(f.mock.calls[0][0]).toContain('$top=2&$skip=0')
+    expect(f.mock.calls[1][0]).toContain('$skip=2')
+  })
+
+  it('keeps the local day for work items with a time of day', async () => {
+    // booked by the app at 00:30 Berlin = 22:30 UTC the day before
+    const { c } = client(() =>
+      json([{ id: 'w', date: at('2026-10-22 00:30'), duration: { minutes: 30 }, text: 't', issue: { idReadable: 'ABC-1' } }])
+    )
+    expect((await c.listMyWorkItems('2026-10-01', '2026-10-31'))[0].day).toBe('2026-10-22')
   })
 
   it('classifies errors', async () => {
