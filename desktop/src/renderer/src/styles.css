@@ -68,6 +68,8 @@ main { flex: 1; overflow: auto; padding: 16px 20px 40px; }
 .hints { margin-bottom: 12px; }
 .hints div { padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; }
 .hints .warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.hints .error { background: color-mix(in srgb, var(--err) 15%, transparent); color: var(--err); }
+tr.overlap td { background: color-mix(in srgb, var(--err) 12%, transparent); }
 .hints .info { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
@@ -121,6 +123,11 @@ tr.archived { opacity: 0.55; }
 .form { display: grid; grid-template-columns: 180px minmax(0, 480px); gap: 8px 12px; align-items: center; }
 .check { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
 .picklist { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; max-height: 360px; overflow: auto; }
+.suggest { position: relative; display: flex; }
+.suggest > input { flex: 1; min-width: 0; }
+.suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; margin: 2px 0 0; padding: 4px 0; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; max-height: 260px; overflow: auto; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+.suggestions li { padding: 4px 10px; cursor: pointer; }
+.suggestions li.sel { background: var(--bg); }
 .picklist label.done { color: var(--muted); }
 .picklist button { align-self: flex-start; margin-top: 6px; }
 

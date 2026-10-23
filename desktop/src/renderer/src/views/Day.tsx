@@ -36,6 +36,7 @@ function IntervalRow(props: {
   kind: string
   start: number
   end: number | null
+  overlap?: boolean
   onSave: (start: number, end: number | null) => Promise<unknown>
   onDelete: () => void
 }) {
@@ -43,7 +44,7 @@ function IntervalRow(props: {
   const [end, setEnd] = useDraft(props.end)
   const dirty = start !== props.start || end !== props.end
   return (
-    <tr>
+    <tr className={props.overlap ? 'overlap' : undefined} title={props.overlap ? 'Überschneidet sich mit einer anderen Anwesenheit' : undefined}>
       <td>{props.kind}</td>
       <td>
         <DateTimeInput value={start} onChange={(v) => v !== null && setStart(v)} />
@@ -210,6 +211,7 @@ export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string
               kind={i.kind}
               start={i.start}
               end={i.end}
+              overlap={i.kind === 'Anwesenheit' && s.overlapPresenceIds.includes(i.id)}
               onSave={(st, en) =>
                 run(() => (i.kind === 'Pause' ? api.updatePause(i.id, st, en) : api.updatePresence(i.id, st, en)), 'Gespeichert')
               }

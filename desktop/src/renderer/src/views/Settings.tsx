@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Snapshot } from '@shared/api'
 import type { Settings } from '@shared/types'
 import { api } from '../api'
-import { useAction } from '../ui'
+import { QueryInput, useAction } from '../ui'
 
 export function SettingsView({ snap }: { snap: Snapshot }) {
   const run = useAction()
@@ -11,6 +11,7 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
   const [url, setUrl] = useState(s['youtrack.baseUrl'])
   const [token, setToken] = useState('')
   const [query, setQuery] = useState(s['youtrack.issueQuery'])
+  const [lunch, setLunch] = useState(String(s['work.minLunchBreakMin']))
   const set = (patch: Partial<Settings>) => run(() => api.setSettings(patch))
 
   return (
@@ -40,7 +41,7 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
             )}
           </div>
           <label>Ticket-Suche</label>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} onBlur={() => query !== s['youtrack.issueQuery'] && set({ 'youtrack.issueQuery': query })} />
+          <QueryInput value={query} onChange={setQuery} onBlur={() => query !== s['youtrack.issueQuery'] && set({ 'youtrack.issueQuery': query })} />
           <label>Buchen</label>
           <select value={s['youtrack.bookingMode']} onChange={(e) => set({ 'youtrack.bookingMode': e.target.value as Settings['youtrack.bookingMode'] })}>
             <option value="manual">manuell („Tag/Woche buchen“)</option>
@@ -80,6 +81,25 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
           <input type="checkbox" checked={s['work.resumeAfterBreak']} onChange={(e) => set({ 'work.resumeAfterBreak': e.target.checked })} />
           Nach der Pause die vorherige Tätigkeit fortsetzen
         </label>
+        <div className="form">
+          <label>Mittagspause mind.</label>
+          <div className="row">
+            <input
+              type="number"
+              min={0}
+              max={240}
+              step={5}
+              value={lunch}
+              onChange={(e) => setLunch(e.target.value)}
+              onBlur={() => {
+                const n = Math.max(0, Math.min(240, Math.round(Number(lunch) || 0)))
+                setLunch(String(n))
+                if (n !== s['work.minLunchBreakMin']) set({ 'work.minLunchBreakMin': n })
+              }}
+            />
+            min am Stück bei mehr als 6 h (0 = aus)
+          </div>
+        </div>
       </section>
 
       <section className="card">

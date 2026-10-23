@@ -35,6 +35,17 @@ describe('YouTrackClient', () => {
     expect(JSON.parse(f.mock.calls[1][1]!.body as string).type).toEqual({ id: '9-1' })
   })
 
+  it('asks YouTrack for query suggestions', async () => {
+    const { f, c } = client(() =>
+      json({ suggestions: [{ option: 'Unresolved', prefix: '#', suffix: ' ', completionStart: 0, completionEnd: 4, caret: 12, description: 'state' }] })
+    )
+    const s = await c.assist('#Unr', 4)
+    expect(s).toEqual([{ option: 'Unresolved', prefix: '#', suffix: ' ', completionStart: 0, completionEnd: 4, caret: 12, description: 'state' }])
+    expect(f.mock.calls[0][0]).toMatch(/^https:\/\/yt\.example\.com\/api\/search\/assist\?fields=/)
+    expect(f.mock.calls[0][1]!.method).toBe('POST')
+    expect(JSON.parse(f.mock.calls[0][1]!.body as string)).toEqual({ query: '#Unr', caret: 4 })
+  })
+
   it('classifies errors', async () => {
     const cases: [number, string][] = [
       [401, 'auth'],

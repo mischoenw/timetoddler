@@ -70,7 +70,12 @@ export interface TimeData {
 
 const H = 3600
 
-export function daySummary(day: string, data: TimeData, now: number): DaySummary {
+export interface HintOptions {
+  /** Minimum length of one uninterrupted break on days over 6 h; 0 = off. */
+  minLunchBreakMin?: number
+}
+
+export function daySummary(day: string, data: TimeData, now: number, opts: HintOptions = {}): DaySummary {
   const [from, to] = dayRange(day)
   const sum = (xs: { start: number; end: number | null }[]): number =>
     xs.reduce((acc, x) => acc + overlapSec(x.start, x.end, from, to, now), 0)
@@ -89,8 +94,24 @@ export function daySummary(day: string, data: TimeData, now: number): DaySummary
   }
 
   const hints: Hint[] = []
+  const overlap = new Set<number>()
+  const inDay = data.presences.filter((p) => overlapSec(p.start, p.end, from, to, now) > 0).sort((a, b) => a.start - b.start)
+  const endOf = (p: Presence): number => p.end ?? Math.max(now, p.start)
+  const span = (p: Presence): string => `${formatTime(p.start)}–${p.end === null ? 'offen' : formatTime(p.end)}`
+  inDay.forEach((a, i) => {
+    for (const b of inDay.slice(i + 1)) {
+      if (b.start >= endOf(a)) continue
+      overlap.add(a.id).add(b.id)
+      hints.push({ level: 'error', text: `Anwesenheiten überschneiden sich: ${span(a)} und ${span(b)}` })
+    }
+  })
   if (netSec > 6 * H && pauseSec < 30 * 60) hints.push({ level: 'warn', text: 'Mehr als 6 h Arbeitszeit, aber weniger als 30 min Pause' })
   if (netSec > 9 * H && pauseSec < 45 * 60) hints.push({ level: 'warn', text: 'Mehr als 9 h Arbeitszeit, aber weniger als 45 min Pause' })
+  const lunchMin = opts.minLunchBreakMin ?? 0
+  if (lunchMin > 0 && netSec > 6 * H) {
+    const longest = Math.max(0, ...data.pauses.map((p) => overlapSec(p.start, p.end, from, to, now)))
+    if (longest < lunchMin * 60) hints.push({ level: 'warn', text: `Keine zusammenhängende Pause von mind. ${lunchMin} min` })
+  }
   if (netSec > 10 * H) hints.push({ level: 'warn', text: 'Mehr als 10 h Arbeitszeit' })
   for (const e of data.entries) {
     if (e.end === null && now - e.start > 12 * H * 1000) hints.push({ level: 'warn', text: 'Ein Eintrag läuft seit mehr als 12 h' })
@@ -107,7 +128,8 @@ export function daySummary(day: string, data: TimeData, now: number): DaySummary
     entriesSec,
     unassignedSec: Math.max(0, netSec - entriesSec),
     perProject,
-    hints
+    hints,
+    overlapPresenceIds: [...overlap].sort((a, b) => a - b)
   }
 }
 

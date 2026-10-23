@@ -6,6 +6,7 @@ import type {
   Presence,
   Project,
   ProjectInput,
+  QuerySuggestion,
   RemoteIssue,
   RemoteProject,
   RemoteWorkType,
@@ -61,6 +62,7 @@ export interface TtApi {
   ytDisconnect(): void
   ytProjects(): RemoteProject[]
   ytSearchIssues(query: string): RemoteIssue[]
+  ytAssist(query: string, caret: number): QuerySuggestion[]
   ytIssue(key: string): RemoteIssue
   ytWorkTypes(projectId: string): RemoteWorkType[]
   ytImportProjects(ps: RemoteProject[]): Project[]

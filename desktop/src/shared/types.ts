@@ -76,6 +76,8 @@ export type BookingMode = 'manual' | 'onStop'
 export interface Settings {
   'work.autoCome': boolean
   'work.resumeAfterBreak': boolean
+  /** Minimum length of one uninterrupted break on days over 6 h; 0 = off. */
+  'work.minLunchBreakMin': number
   'encoder.stepsPerDetent': number
   'encoder.reverse': boolean
   'youtrack.baseUrl': string
@@ -88,6 +90,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   'work.autoCome': true,
   'work.resumeAfterBreak': true,
+  'work.minLunchBreakMin': 30,
   'encoder.stepsPerDetent': 4,
   'encoder.reverse': false,
   'youtrack.baseUrl': '',
@@ -107,7 +110,7 @@ export interface TrackerState {
 }
 
 export interface Hint {
-  level: 'info' | 'warn'
+  level: 'info' | 'warn' | 'error'
   text: string
 }
 
@@ -120,6 +123,8 @@ export interface DaySummary {
   unassignedSec: number
   perProject: Record<number, number>
   hints: Hint[]
+  /** Presences that overlap another presence of this day. */
+  overlapPresenceIds: number[]
 }
 
 export interface WeekSummary {
@@ -143,6 +148,17 @@ export interface RemoteIssue {
   resolved: boolean
   projectId: string
   projectKey: string
+}
+
+/** One entry of YouTrack's search assist; insert `prefix + option + suffix` at [completionStart, completionEnd). */
+export interface QuerySuggestion {
+  option: string
+  prefix: string
+  suffix: string
+  completionStart: number
+  completionEnd: number
+  caret: number
+  description: string
 }
 
 export interface RemoteWorkType {

@@ -1,4 +1,4 @@
-import type { RemoteIssue, RemoteProject, RemoteWorkType } from '@shared/types'
+import type { QuerySuggestion, RemoteIssue, RemoteProject, RemoteWorkType } from '@shared/types'
 
 export type YouTrackErrorKind = 'auth' | 'notfound' | 'client' | 'server' | 'network'
 
@@ -102,6 +102,25 @@ export class YouTrackClient {
       `/issues?query=${encodeURIComponent(query)}&fields=${ISSUE_FIELDS}&$top=${top}`
     )
     return is.map(toIssue)
+  }
+
+  async assist(query: string, caret: number): Promise<QuerySuggestion[]> {
+    const r = await this.request<{ suggestions?: Partial<QuerySuggestion>[] }>(
+      'POST',
+      '/search/assist?fields=suggestions(option,prefix,suffix,completionStart,completionEnd,caret,description)',
+      { query, caret }
+    )
+    return (r.suggestions ?? [])
+      .filter((s) => s.option)
+      .map((s) => ({
+        option: s.option!,
+        prefix: s.prefix ?? '',
+        suffix: s.suffix ?? '',
+        completionStart: s.completionStart ?? caret,
+        completionEnd: s.completionEnd ?? caret,
+        caret: s.caret ?? caret,
+        description: s.description ?? ''
+      }))
   }
 
   async getIssue(key: string): Promise<RemoteIssue> {

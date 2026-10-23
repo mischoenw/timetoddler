@@ -41,6 +41,50 @@ describe('timecalc', () => {
     expect(s.hints.map((h) => h.text)).toEqual(['Mehr als 6 h Arbeitszeit, aber weniger als 30 min Pause'])
   })
 
+  it('flags a missing lunch break of the configured minimum', () => {
+    const data = (pauses: [string, string][]) => ({
+      presences: [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 16:00') }],
+      pauses: pauses.map(([s, e], i) => ({ id: i + 1, presenceId: 1, start: at(`2026-10-21 ${s}`), end: at(`2026-10-21 ${e}`), resumeProjectId: null })),
+      entries: []
+    })
+    const now = at('2026-10-21 18:00')
+    const lunch = (d: ReturnType<typeof data>, min: number) =>
+      daySummary('2026-10-21', d, now, { minLunchBreakMin: min }).hints.filter((h) => h.text.includes('zusammenhängende'))
+    const split = data([
+      ['10:00', '10:15'],
+      ['12:00', '12:15']
+    ])
+    expect(lunch(split, 30).map((h) => h.text)).toEqual(['Keine zusammenhängende Pause von mind. 30 min'])
+    expect(lunch(split, 15)).toEqual([])
+    expect(lunch(split, 0)).toEqual([])
+    expect(lunch(data([['12:00', '12:30']]), 30)).toEqual([])
+    expect(lunch(data([['12:00', '12:30']]), 45)).toHaveLength(1)
+  })
+
+  it('flags overlapping presences as error', () => {
+    const pres = (xs: [string, string | null][]) =>
+      xs.map(([s, e], i) => ({ id: i + 1, start: at(`2026-10-21 ${s}`), end: e ? at(`2026-10-21 ${e}`) : null }))
+    const sum = (xs: [string, string | null][]) => daySummary('2026-10-21', { presences: pres(xs), pauses: [], entries: [] }, at('2026-10-21 18:00'))
+    const s = sum([
+      ['08:00', '12:00'],
+      ['11:30', '16:00']
+    ])
+    expect(s.overlapPresenceIds).toEqual([1, 2])
+    expect(s.hints).toContainEqual({ level: 'error', text: 'Anwesenheiten überschneiden sich: 08:00–12:00 und 11:30–16:00' })
+    expect(
+      sum([
+        ['08:00', '12:00'],
+        ['12:00', '16:00']
+      ]).overlapPresenceIds
+    ).toEqual([])
+    expect(
+      sum([
+        ['08:00', null],
+        ['17:00', '17:30']
+      ]).overlapPresenceIds
+    ).toEqual([1, 2])
+  })
+
   it('counts open intervals up to now and flags a forgotten day', () => {
     const now = at('2026-10-22 09:00')
     const data = { presences: [{ id: 1, start: at('2026-10-21 08:00'), end: null }], pauses: [], entries: [] }

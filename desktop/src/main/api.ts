@@ -137,6 +137,7 @@ export function createApi(deps: ApiDeps): MainApi {
       }
     },
     ytSearchIssues: (q) => yt().searchIssues(q),
+    ytAssist: (q, caret) => yt().assist(q, caret),
     ytIssue: (key) => yt().getIssue(key.trim().toUpperCase()),
     ytWorkTypes: (projectId) => yt().listWorkTypes(projectId),
     ytImportProjects: (ps) => svc.importRemoteProjects(ps),

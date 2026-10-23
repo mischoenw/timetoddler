@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Snapshot } from '@shared/api'
 import type { Project, RemoteIssue, RemoteProject, RemoteWorkType } from '@shared/types'
 import { api } from '../api'
-import { useAction } from '../ui'
+import { QueryInput, useAction } from '../ui'
 
 function ProjectRow({ p, configured }: { p: Project; configured: boolean }) {
   const run = useAction()
@@ -111,10 +111,13 @@ function YouTrackImport({ snap }: { snap: Snapshot }) {
   const [projects, setProjects] = useState<RemoteProject[] | null>(null)
   const [issues, setIssues] = useState<RemoteIssue[] | null>(null)
   const [query, setQuery] = useState(snap.settings['youtrack.issueQuery'])
+  const [showResolved, setShowResolved] = useState(false)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const toggle = (k: string) => setSel((s) => (s.has(k) ? (s.delete(k), new Set(s)) : new Set(s.add(k))))
   const linkedIssues = new Set(snap.projects.map((p) => p.ytIssue).filter(Boolean))
   const linkedProjects = new Set(snap.projects.filter((p) => !p.ytIssue).map((p) => p.ytProjectId).filter(Boolean))
+  const search = () =>
+    run(() => api.ytSearchIssues(showResolved ? query : `${query} #Unresolved`)).then((r) => r && (setIssues(r), setProjects(null), setSel(new Set())))
 
   return (
     <section className="card">
@@ -123,10 +126,11 @@ function YouTrackImport({ snap }: { snap: Snapshot }) {
         YouTrack bucht Zeit auf Tickets. Übernimm Tickets direkt als Kacheln, oder Projekte und hinterlege danach ein Standard-Ticket.
       </p>
       <div className="row">
-        <input className="grow" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="YouTrack-Suche" />
-        <button onClick={() => run(() => api.ytSearchIssues(query)).then((r) => r && (setIssues(r), setProjects(null), setSel(new Set())))}>
-          Tickets suchen
-        </button>
+        <QueryInput className="grow" value={query} onChange={setQuery} onEnter={search} placeholder="YouTrack-Suche, # für Vorschläge" />
+        <label className="row">
+          <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} /> Erledigte zeigen
+        </label>
+        <button onClick={search}>Tickets suchen</button>
         <button onClick={() => run(() => api.ytProjects()).then((r) => r && (setProjects(r), setIssues(null), setSel(new Set())))}>
           Projekte laden
         </button>

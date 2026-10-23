@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { setup } from './helpers'
+import { at, setup } from './helpers'
 
 describe('tracking rules', () => {
   it('starting an activity auto-comes and switching stops the previous one', async () => {
@@ -124,5 +124,15 @@ describe('tracking rules', () => {
     expect(p).toMatchObject({ kind: 'youtrack', ytIssue: 'ABC-1', name: 'ABC-1 Login' })
     svc.markStale([], new Set(['ABC-1']))
     expect(svc.projects()[0].ytStale).toBe(true)
+  })
+
+  it('rejects overlapping presences', async () => {
+    const { svc } = await setup('2026-10-21 18:00')
+    const a = svc.createPresence(at('2026-10-21 08:00'), at('2026-10-21 12:00'))
+    expect(() => svc.createPresence(at('2026-10-21 11:00'), at('2026-10-21 13:00'))).toThrow('überschneidet')
+    const b = svc.createPresence(at('2026-10-21 12:00'), at('2026-10-21 16:00'))
+    expect(() => svc.updatePresence(b.id, at('2026-10-21 11:59'), at('2026-10-21 16:00'))).toThrow('überschneidet')
+    svc.updatePresence(a.id, at('2026-10-21 07:30'), at('2026-10-21 12:00'))
+    expect(() => svc.createPresence(at('2026-10-21 15:00'), null)).toThrow('überschneidet')
   })
 })

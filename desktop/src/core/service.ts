@@ -13,7 +13,7 @@ import type {
   TrackerState,
   WeekView
 } from '@shared/types'
-import { addDays, dayRange, daySummary, localDay, weekStart, weekSummary } from '@shared/timecalc'
+import { addDays, dayRange, daySummary, formatTime, localDay, weekStart, weekSummary } from '@shared/timecalc'
 import { nextColor } from '@shared/tiles'
 import type { Repo } from './repo'
 import { CONNECTOR, entryState, reconcileEntry, requestBooking } from './booking'
@@ -208,15 +208,25 @@ export class AppService {
 
   createPresence(start: number, end: number | null): Presence {
     this.validateInterval(start, end)
+    this.validatePresenceOverlap(start, end, null)
     if (end === null && this.repo.openPresence()) throw new ValidationError('Es ist bereits eine Anwesenheit offen')
     return this.repo.createPresence(start, end)
   }
 
   updatePresence(id: number, start: number, end: number | null): void {
     this.validateInterval(start, end)
+    this.validatePresenceOverlap(start, end, id)
     const open = this.repo.openPresence()
     if (end === null && open && open.id !== id) throw new ValidationError('Es ist bereits eine Anwesenheit offen')
     this.repo.updatePresence(id, start, end)
+  }
+
+  private validatePresenceOverlap(start: number, end: number | null, id: number | null): void {
+    const other = this.repo.presencesBetween(start, end ?? Number.MAX_SAFE_INTEGER).find((p) => p.id !== id)
+    if (other) {
+      const span = `${formatTime(other.start)}–${other.end === null ? 'offen' : formatTime(other.end)}`
+      throw new ValidationError(`Anwesenheit überschneidet sich mit ${localDay(other.start)} ${span}`)
+    }
   }
 
   deletePresence(id: number): void {
@@ -347,7 +357,7 @@ export class AppService {
     const projects = new Map(this.repo.listProjects().map((p) => [p.id, p]))
     return {
       day,
-      summary: daySummary(day, data, this.clock()),
+      summary: daySummary(day, data, this.clock(), { minLunchBreakMin: this.settings()['work.minLunchBreakMin'] }),
       entries: data.entries.map((e) => ({
         ...e,
         booking: entryState(e, projects.get(e.projectId), rows),

@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import type { EntryBookingState } from '@shared/types'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import type { EntryBookingState, QuerySuggestion } from '@shared/types'
+import { api } from './api'
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
@@ -112,6 +113,99 @@ export function Modal({ title, children, onClose }: { title: string; children: R
         <h3>{title}</h3>
         {children}
       </div>
+    </div>
+  )
+}
+
+/** YouTrack search field; suggests completions from YouTrack while the word at the caret starts with `#`. */
+export function QueryInput(props: {
+  value: string
+  onChange: (v: string) => void
+  onBlur?: () => void
+  onEnter?: () => void
+  className?: string
+  placeholder?: string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [items, setItems] = useState<QuerySuggestion[]>([])
+  const [sel, setSel] = useState(0)
+  const seq = useRef(0)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const close = (): void => {
+    seq.current++
+    clearTimeout(timer.current)
+    setItems([])
+  }
+
+  const suggest = (value: string, caret: number): void => {
+    const word = value.slice(0, caret).split(/\s/).pop() ?? ''
+    if (!word.replace(/^-/, '').startsWith('#')) return close()
+    clearTimeout(timer.current)
+    const my = ++seq.current
+    timer.current = setTimeout(() => {
+      api.ytAssist(value, caret).then(
+        (r) => {
+          if (my !== seq.current) return
+          setItems(r.slice(0, 12))
+          setSel(0)
+        },
+        () => my === seq.current && setItems([])
+      )
+    }, 150)
+  }
+
+  const apply = (s: QuerySuggestion): void => {
+    const v = props.value
+    const next = v.slice(0, s.completionStart) + s.prefix + s.option + s.suffix + v.slice(s.completionEnd)
+    props.onChange(next)
+    close()
+    requestAnimationFrame(() => ref.current?.setSelectionRange(s.caret, s.caret))
+  }
+
+  return (
+    <div className={`suggest ${props.className ?? ''}`}>
+      <input
+        ref={ref}
+        value={props.value}
+        placeholder={props.placeholder}
+        onChange={(e) => {
+          props.onChange(e.target.value)
+          suggest(e.target.value, e.target.selectionStart ?? e.target.value.length)
+        }}
+        onBlur={() => {
+          close()
+          props.onBlur?.()
+        }}
+        onKeyDown={(e) => {
+          if (items.length > 0) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              setSel((i) => (i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length)
+              return
+            }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault()
+              apply(items[sel])
+              return
+            }
+            if (e.key === 'Escape') return close()
+          }
+          if (e.key === 'Enter') props.onEnter?.()
+        }}
+      />
+      {items.length > 0 && (
+        <ul className="suggestions">
+          {items.map((s, i) => (
+            <li key={i} className={i === sel ? 'sel' : ''} onMouseDown={(e) => (e.preventDefault(), apply(s))} onMouseEnter={() => setSel(i)}>
+              {s.prefix}
+              {s.option}
+              {s.description && <span className="muted"> {s.description}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
