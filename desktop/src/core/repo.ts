@@ -298,6 +298,13 @@ export class Repo {
     return r && toBooking(r)
   }
 
+  /** Queued rows whose work item was never confirmed by YouTrack. */
+  unconfirmedBookings(connector: string): BookingRow[] {
+    return this.db
+      .all<BookingDbRow>(`SELECT * FROM booking WHERE connector = ? AND status IN ('pending','error') AND remote_id IS NULL`, [connector])
+      .map(toBooking)
+  }
+
   /** Booked rows with a remote work item on days in [fromDay, toDay]. */
   bookedBetween(connector: string, fromDay: string, toDay: string): BookingRow[] {
     return this.db

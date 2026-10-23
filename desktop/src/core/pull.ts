@@ -1,6 +1,6 @@
 import type { BookingRow, Entry, Project, RemoteWorkItem } from '@shared/types'
 import { addDays, dayRange, localDay } from '@shared/timecalc'
-import { buildDrafts, CONNECTOR } from './booking'
+import { buildDrafts, CONNECTOR, type BookingDraft } from './booking'
 import type { Repo } from './repo'
 
 export const PULL_DAYS = 31
@@ -23,7 +23,8 @@ export interface PullResult {
 export async function pullWorkItems(repo: Repo, api: PullApi, now: number): Promise<PullResult> {
   const toDay = localDay(now)
   const fromDay = addDays(toDay, -(PULL_DAYS - 1))
-  const items = await api.listMyWorkItems(fromDay, toDay)
+  // One extra day on each side: the server may filter by UTC date, the app books with local times.
+  const items = await api.listMyWorkItems(addDays(fromDay, -1), addDays(toDay, 1))
   const res: PullResult = { created: 0, updated: 0, unbooked: 0 }
   repo.tx(() => {
     const seen = new Set(items.map((i) => i.id))
@@ -33,6 +34,7 @@ export async function pullWorkItems(repo: Repo, api: PullApi, now: number): Prom
       res.unbooked++
     }
     const tiles = tilesByIssue(repo.listProjects())
+    const unconfirmed = repo.unconfirmedBookings(CONNECTOR)
     for (const item of items) {
       if (item.minutes < 1) continue
       const row = repo.bookingByRemoteId(CONNECTOR, item.id)
@@ -40,6 +42,8 @@ export async function pullWorkItems(repo: Repo, api: PullApi, now: number): Prom
         if (applyRemote(repo, row, item, now)) res.updated++
         continue
       }
+      if (item.day < fromDay || item.day > toDay) continue
+      if (adoptLostPush(repo, unconfirmed, item)) continue
       const tile = tiles.get(item.issue.toUpperCase())
       if (!tile) continue
       const dur = item.minutes * 60_000
@@ -73,12 +77,36 @@ function applyRemote(repo: Repo, row: BookingRow, item: RemoteWorkItem, now: num
   const drafts = buildDrafts(entry, project)
   if (drafts.length !== 1 || drafts[0].hash !== row.syncedHash) return false
   const d = drafts[0]
-  if (d.minutes === item.minutes && d.text === item.text && d.day === item.day) return false
+  const moved = !sameDay(item, d)
+  if (!moved && d.minutes === item.minutes && d.text === item.text) return false
   const dur = item.minutes * 60_000
-  const start = fitDay(item.day, d.day === item.day ? entry.start : slotStart(repo, item.day, entry.id, now), dur)
+  const start = moved ? fitDay(item.day, slotStart(repo, item.day, entry.id, now), dur) : fitDay(d.day, entry.start, dur)
   const updated = repo.updateEntry(entry.id, { start, end: start + dur, note: item.text })
   repo.deleteBooking(row.entryId, row.day, CONNECTOR)
   markBooked(repo, updated, project!, row.remoteId!, now)
+  return true
+}
+
+/** YouTrack may report the app's own timestamp, or that day truncated to UTC midnight: both mean "not moved". */
+function sameDay(item: RemoteWorkItem, d: BookingDraft): boolean {
+  if (item.day === d.day || item.date === d.date) return true
+  const utcDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
+  return item.date % 86_400_000 === 0 && utcDate(item.date) === utcDate(d.date)
+}
+
+/**
+ * A push whose response got lost (timeout after YouTrack created the item) leaves a queued row without
+ * remote id. Link the item to it instead of creating a duplicate entry; the next push only updates it.
+ */
+function adoptLostPush(repo: Repo, unconfirmed: BookingRow[], item: RemoteWorkItem): boolean {
+  const i = unconfirmed.findIndex((row) => {
+    const entry = repo.getEntry(row.entryId)
+    const d = entry && buildDrafts(entry, repo.getProject(entry.projectId)).find((x) => x.day === row.day)
+    return !!d && d.issue.toUpperCase() === item.issue.toUpperCase() && sameDay(item, d) && d.minutes === item.minutes && d.text === item.text
+  })
+  if (i < 0) return false
+  const [row] = unconfirmed.splice(i, 1)
+  repo.upsertBooking({ ...row, remoteId: item.id, remoteIssue: item.issue })
   return true
 }
 

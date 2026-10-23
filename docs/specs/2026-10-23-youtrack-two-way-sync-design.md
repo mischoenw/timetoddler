@@ -20,7 +20,7 @@ GET /api/workItems?author=me&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
     &fields=id,date,duration(minutes),text,issue(idReadable)&$top=500&$skip=…
 ```
 
-Seitenweise, bis eine Seite weniger als `$top` Einträge liefert.
+Seitenweise, bis eine Seite weniger als `$top` Einträge liefert. Abgefragt wird je ein Tag mehr an beiden Enden (der Server kann nach UTC-Datum filtern); angelegt und entbucht wird nur innerhalb der 31 Tage.
 
 Berücksichtigt werden nur:
 
@@ -70,6 +70,10 @@ Neuer Eintrag auf der Kachel (siehe Umfang):
 - Buchungszeile: `day` = Tag des Eintrags, `remote_id`, `remote_issue` = Ticket, `synced_hash` = Hash des Entwurfs, Status `booked`.
 
 Damit gilt der Eintrag sofort als „gebucht“ und wird nicht zurückgeschrieben.
+
+Vorher wird geprüft, ob das Work Item zu einer ausstehenden oder fehlerhaften Buchungszeile ohne `remote_id` passt (gleiches Ticket, Tag, Minuten, Text): Dann ging die Antwort eines Pushs verloren. Die Zeile bekommt die `remote_id`, es entsteht kein neuer Eintrag.
+
+**Tag unverändert** heißt: gleicher Tag, gleiches `date` wie gebucht, oder `date` ist UTC-Mitternacht des UTC-Datums des gebuchten Zeitpunkts (YouTrack hat gekürzt).
 
 ## Komponenten
 

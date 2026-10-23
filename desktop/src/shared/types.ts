@@ -168,6 +168,8 @@ export interface RemoteWorkItem {
   id: string
   issue: string
   day: string
+  /** Raw `date` as reported by YouTrack (epoch ms). */
+  date: number
   minutes: number
   text: string
 }

@@ -59,7 +59,7 @@ describe('YouTrackClient', () => {
     const { f, c } = client((url) => json(url.includes('$skip=0') ? page(2, 0) : page(1, 2)))
     const items = await c.listMyWorkItems('2026-09-21', '2026-10-21', 2)
     expect(items).toHaveLength(3)
-    expect(items[0]).toEqual({ id: 'w-0', issue: 'ABC-1', day: '2026-10-21', minutes: 30, text: '' })
+    expect(items[0]).toEqual({ id: 'w-0', issue: 'ABC-1', day: '2026-10-21', date: Date.UTC(2026, 9, 21), minutes: 30, text: '' })
     expect(f).toHaveBeenCalledTimes(2)
     expect(f.mock.calls[0][0]).toContain('/api/workItems?author=me&startDate=2026-09-21&endDate=2026-10-21')
     expect(f.mock.calls[0][0]).toContain('$top=2&$skip=0')

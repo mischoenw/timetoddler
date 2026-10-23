@@ -211,6 +211,7 @@ const toWorkItem = (w: WorkItemDto): RemoteWorkItem => ({
   id: w.id,
   issue: w.issue?.idReadable ?? '',
   day: workItemDay(w.date),
+  date: w.date,
   minutes: w.duration?.minutes ?? 0,
   text: w.text ?? ''
 })
