@@ -34,11 +34,12 @@ Alle anderen Work Items (andere Tickets, Projekt-Kacheln ohne passendes Standard
 - Der Pull läuft in `SyncQueue.runOnce()` **nach** dem Push. Damit sind lokale Änderungen schon in YouTrack, bevor der Pull sie sehen könnte: Die App gewinnt.
 - Takt: beim Start, mit der bestehenden Sync-Schleife höchstens alle 10 min (`PULL_INTERVAL_MS`) und sofort bei „Jetzt synchronisieren“ (`syncNow`, erzwungen).
 - Nur wenn YouTrack konfiguriert ist, kein Auth-Fehler vorliegt und die Einstellung `youtrack.pull` (Standard `true`, „Buchungen aus YouTrack holen“) an ist.
+- Pull und Push laufen nie gleichzeitig (gemeinsame Sperre in `SyncQueue`); ein Pull, der auf einen laufenden Push trifft, fällt aus und kommt beim nächsten Takt.
 - Fehler beim Pull: wie beim Push in `lastError`; 401/403 setzt `authError`. Ein fehlgeschlagener Pull ändert lokal nichts.
 
 ## Abbildung
 
-Der **Tag** eines Work Items ist das UTC-Datum von `date` (YouTrack liefert UTC-Mitternacht). Der Tag einer lokalen Buchungszeile ist `booking.day`.
+Der **Tag** eines Work Items: Ist `date` genau UTC-Mitternacht (so speichert YouTrack in seiner Oberfläche erfasste Tage), das UTC-Datum; sonst (von der App mit lokaler Startzeit gebucht) der lokale Tag von `date`. Der Tag einer lokalen Buchungszeile ist `booking.day`. Work Items mit 0 Minuten werden nicht übernommen.
 
 ### Bekanntes Work Item
 
@@ -77,7 +78,7 @@ Damit gilt der Eintrag sofort als „gebucht“ und wird nicht zurückgeschriebe
 | `src/core/youtrack.ts` | `listMyWorkItems(fromDay, toDay): Promise<RemoteWorkItem[]>` mit Seitenabruf |
 | `src/shared/types.ts` | `RemoteWorkItem { id, issue, day, minutes, text }`; Einstellung `youtrack.pull`; `SyncStatus.lastPull` |
 | `src/core/pull.ts` (neu) | `pullWorkItems(repo, api, now): { created, updated, unbooked }`, reine Logik ohne Netz außer über `api` |
-| `src/core/booking.ts` | `SyncQueue.runOnce({ forcePull })` ruft nach dem Push `pullWorkItems` auf, merkt `lastPull` |
+| `src/core/booking.ts` | `SyncQueue.pullOnce(force)` ruft `pullWorkItems` auf, merkt `lastPull`; Main ruft es nach `runOnce()` auf |
 | `src/core/repo.ts` | Abfragen: gebuchte Zeilen mit `remote_id` in einem Zeitraum, Zeile per `remote_id` |
 | `src/main/api.ts` | `syncNow` erzwingt den Pull; `syncStatus` liefert `lastPull` |
 | `src/renderer/src/views/Settings.tsx` | Schalter „Buchungen aus YouTrack holen“, Status „zuletzt geholt“ |
@@ -97,6 +98,7 @@ Damit gilt der Eintrag sofort als „gebucht“ und wird nicht zurückgeschriebe
 
 ## Risiken
 
-- **Tag aus `date`:** Die App bucht mit dem lokalen Startzeitpunkt des Eintrags. Ob YouTrack daraus denselben Tag macht (UTC-Mitternacht), muss gegen den echten Server geprüft werden. Kurz nach Mitternacht Ortszeit kann der UTC-Tag abweichen.
+- **Tag aus `date`:** Die App bucht mit dem lokalen Startzeitpunkt des Eintrags. Ob YouTrack diesen Zeitpunkt unverändert zurückgibt oder auf UTC-Mitternacht kürzt, muss gegen den echten Server geprüft werden. Kürzt er, kann ein Eintrag kurz nach Mitternacht Ortszeit als „auf den Vortag verschoben“ erkannt werden.
+- **Verschoben aus dem Zeitraum:** Wird ein Work Item in YouTrack auf einen Tag vor dem Abrufzeitraum verschoben, sieht die App es als gelöscht und entbucht den Eintrag.
 - **Duplikate:** Wer dieselbe Zeit lokal (ungebucht) und direkt in YouTrack erfasst, bekommt zwei Einträge. Die App ordnet sie nicht zu.
 - **Fremdänderung an Einträgen über Mitternacht** wird nicht übernommen und beim nächsten lokalen Ändern überschrieben.
