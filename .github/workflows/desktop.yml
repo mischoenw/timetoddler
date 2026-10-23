@@ -1,0 +1,61 @@
+name: desktop
+
+# Builds installers for Windows, macOS and Linux.
+# Tag `timetoddler-v0.1.0` -> GitHub Release with all installers; manual run -> artifacts only.
+on:
+  push:
+    tags: ['timetoddler-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Package
+        run: npx electron-builder --publish never
+        env:
+          # No signing certificates configured yet: build unsigned.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: timetoddler-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/timetoddler-v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

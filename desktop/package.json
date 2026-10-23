@@ -1,0 +1,75 @@
+{
+  "name": "timetoddler",
+  "productName": "TimeToddler",
+  "version": "0.1.0",
+  "description": "Zeiterfassung mit Drehknopf und YouTrack-Anbindung",
+  "main": "out/main/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sql.js": "1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^43.8.3",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "5.9",
+    "vite": "^7.3.7",
+    "vitest": "3.2"
+  },
+  "build": {
+    "appId": "de.schoenwiese.timetoddler",
+    "productName": "TimeToddler",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "maintainer": "Michael Schönwiese <31521592+mischoenw@users.noreply.github.com>"
+    },
+    "publish": null
+  },
+  "author": {
+    "name": "Michael Schönwiese",
+    "email": "31521592+mischoenw@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/mischoenw/timetoddler"
+}

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- TimeToddler app icon: rotary knob with LED ring and elapsed-time arc (source for build/icon.png) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f80ff"/>
+      <stop offset="1" stop-color="#1b2f7c"/>
+    </linearGradient>
+    <radialGradient id="knob" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#3b4459"/>
+      <stop offset="1" stop-color="#0f131c"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5cf0a0"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- LED ring: 8 LEDs, first five lit -->
+  <g filter="url(#glow)" fill="#8dffc0">
+    <circle cx="512" cy="182" r="24"/>
+    <circle cx="745.3" cy="278.7" r="24"/>
+    <circle cx="842" cy="512" r="24"/>
+    <circle cx="745.3" cy="745.3" r="24"/>
+    <circle cx="512" cy="842" r="24"/>
+  </g>
+  <g fill="#ffffff" fill-opacity="0.22">
+    <circle cx="278.7" cy="745.3" r="24"/>
+    <circle cx="182" cy="512" r="24"/>
+    <circle cx="278.7" cy="278.7" r="24"/>
+  </g>
+  <!-- knob -->
+  <circle cx="512" cy="512" r="262" fill="url(#knob)" filter="url(#shadow)"/>
+  <circle cx="512" cy="512" r="262" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="6"/>
+  <!-- elapsed-time arc (240 deg) and hand -->
+  <circle cx="512" cy="512" r="190" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="34"/>
+  <path d="M512 322 A190 190 0 1 1 347.5 607" fill="none" stroke="url(#arc)" stroke-width="34" stroke-linecap="round"/>
+  <line x1="512" y1="512" x2="420" y2="565" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <line x1="512" y1="512" x2="512" y2="400" stroke="#ffffff" stroke-opacity="0.55" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="512" cy="512" r="30" fill="#ffffff"/>
+</svg>
