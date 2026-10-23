@@ -3,6 +3,7 @@
   "productName": "TimeToddler",
   "version": "0.1.0",
   "description": "Zeiterfassung mit Drehknopf und YouTrack-Anbindung",
+  "license": "MIT",
   "main": "out/main/index.js",
   "private": true,
   "scripts": {
