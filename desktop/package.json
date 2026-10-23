@@ -1,6 +1,7 @@
 {
   "name": "timetoddler",
   "productName": "TimeToddler",
+  "desktopName": "timetoddler.desktop",
   "version": "0.1.0",
   "description": "Zeiterfassung mit Drehknopf und YouTrack-Anbindung",
   "license": "MIT",
@@ -64,6 +65,7 @@
         "deb"
       ],
       "category": "Office",
+      "syncDesktopName": true,
       "maintainer": "Michael Schönwiese <31521592+mischoenw@users.noreply.github.com>"
     },
     "publish": null
