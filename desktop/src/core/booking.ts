@@ -1,5 +1,6 @@
 import type { BookingRow, Entry, EntryBookingState, Project } from '@shared/types'
 import { splitByDay } from '@shared/timecalc'
+import { pullWorkItems, type PullApi } from './pull'
 import type { Repo } from './repo'
 import { YouTrackError, type WorkItemDraft } from './youtrack'
 
@@ -146,6 +147,9 @@ export interface WorkItemApi {
 
 export const BACKOFF_MIN_MS = 30_000
 export const BACKOFF_MAX_MS = 30 * 60_000
+export const PULL_INTERVAL_MS = 10 * 60_000
+
+export type SyncApi = WorkItemApi & PullApi
 
 export function backoff(attempts: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** Math.max(0, attempts - 1))
@@ -156,11 +160,13 @@ export class SyncQueue {
   authError = false
   lastError: string | null = null
   lastRun: number | null = null
+  lastPull: number | null = null
+  private pullTried: number | null = null
   private busy = false
 
   constructor(
     private readonly repo: Repo,
-    private readonly api: () => WorkItemApi | null,
+    private readonly api: () => SyncApi | null,
     private readonly clock: () => number = Date.now
   ) {}
 
@@ -175,6 +181,27 @@ export class SyncQueue {
         const ok = await this.process(api, row)
         if (!ok) break
       }
+    } finally {
+      this.busy = false
+    }
+  }
+
+  /** Fetches changes from YouTrack, at most every PULL_INTERVAL_MS unless forced. Never runs alongside a push. */
+  async pullOnce(force = false): Promise<void> {
+    if (this.busy || this.authError || !this.repo.getSettings()['youtrack.pull']) return
+    const api = this.api()
+    if (!api) return
+    const now = this.clock()
+    if (!force && this.pullTried !== null && now - this.pullTried < PULL_INTERVAL_MS) return
+    this.busy = true
+    this.pullTried = now
+    try {
+      await pullWorkItems(this.repo, api, now)
+      this.lastPull = now
+      this.lastError = null
+    } catch (err) {
+      this.lastError = (err as Error).message ?? String(err)
+      if (err instanceof YouTrackError && err.kind === 'auth') this.authError = true
     } finally {
       this.busy = false
     }

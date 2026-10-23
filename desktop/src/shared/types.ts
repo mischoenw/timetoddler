@@ -83,6 +83,7 @@ export interface Settings {
   'youtrack.baseUrl': string
   'youtrack.issueQuery': string
   'youtrack.bookingMode': BookingMode
+  'youtrack.pull': boolean
   'device.brightness': number
   'device.led': number
 }
@@ -96,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   'youtrack.baseUrl': '',
   'youtrack.issueQuery': 'for: me #Unresolved',
   'youtrack.bookingMode': 'manual',
+  'youtrack.pull': true,
   'device.brightness': 80,
   'device.led': 60
 }

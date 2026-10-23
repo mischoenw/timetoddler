@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildDrafts, CONNECTOR, minutesOf, SyncQueue, backoff, type WorkItemApi } from '@core/booking'
+import { buildDrafts, CONNECTOR, minutesOf, PULL_INTERVAL_MS, SyncQueue, backoff, type SyncApi } from '@core/booking'
 import { YouTrackError } from '@core/youtrack'
 import { at, setup } from './helpers'
 
 function fakeApi() {
   let n = 0
   const items = new Map<string, { issue: string; minutes: number; text: string }>()
-  const api: WorkItemApi & { items: typeof items } = {
+  const api: SyncApi & { items: typeof items } = {
     items,
     createWorkItem: vi.fn(async (d) => {
       const id = `wi-${++n}`
@@ -19,7 +19,8 @@ function fakeApi() {
     }),
     deleteWorkItem: vi.fn(async (_issue, id) => {
       items.delete(id)
-    })
+    }),
+    listMyWorkItems: vi.fn(async () => [])
   }
   return api
 }
@@ -166,5 +167,44 @@ describe('booking flow', () => {
     expect(svc.day('2026-10-21').entries[0].booking).toBe('pending')
     await q.runOnce()
     expect(api.updateWorkItem).toHaveBeenCalledWith('wi-x', expect.objectContaining({ text: 'während' }))
+  })
+})
+
+describe('pull scheduling', () => {
+  it('pulls at most every 10 minutes unless forced', async () => {
+    const { q, api, clock } = await bookedSetup()
+    await q.pullOnce()
+    await q.pullOnce()
+    expect(api.listMyWorkItems).toHaveBeenCalledTimes(1)
+    expect(q.lastPull).toBe(clock.t)
+    clock.t += PULL_INTERVAL_MS
+    await q.pullOnce()
+    expect(api.listMyWorkItems).toHaveBeenCalledTimes(2)
+    await q.pullOnce(true)
+    expect(api.listMyWorkItems).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not pull when disabled or while a push runs', async () => {
+    const { svc, q, api } = await bookedSetup()
+    svc.setSettings({ 'youtrack.pull': false })
+    await q.pullOnce(true)
+    expect(api.listMyWorkItems).not.toHaveBeenCalled()
+    svc.setSettings({ 'youtrack.pull': true })
+    svc.bookRange('2026-10-21', '2026-10-21')
+    const push = q.runOnce()
+    await q.pullOnce(true)
+    expect(api.listMyWorkItems).not.toHaveBeenCalled()
+    await push
+    await q.pullOnce(true)
+    expect(api.listMyWorkItems).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops on an auth error during pull', async () => {
+    const { q, api } = await bookedSetup()
+    vi.mocked(api.listMyWorkItems).mockRejectedValueOnce(new YouTrackError('auth', 'YouTrack 401', 401))
+    await q.pullOnce(true)
+    expect(q.authError).toBe(true)
+    expect(q.lastError).toBe('YouTrack 401')
+    expect(q.lastPull).toBeNull()
   })
 })
