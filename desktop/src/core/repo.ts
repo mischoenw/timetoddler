@@ -293,6 +293,21 @@ export class Repo {
       .map(toBooking)
   }
 
+  bookingByRemoteId(connector: string, remoteId: string): BookingRow | undefined {
+    const r = this.db.get<BookingDbRow>('SELECT * FROM booking WHERE connector = ? AND remote_id = ?', [connector, remoteId])
+    return r && toBooking(r)
+  }
+
+  /** Booked rows with a remote work item on days in [fromDay, toDay]. */
+  bookedBetween(connector: string, fromDay: string, toDay: string): BookingRow[] {
+    return this.db
+      .all<BookingDbRow>(
+        `SELECT * FROM booking WHERE connector = ? AND status = 'booked' AND remote_id IS NOT NULL AND day BETWEEN ? AND ?`,
+        [connector, fromDay, toDay]
+      )
+      .map(toBooking)
+  }
+
   dueBookings(connector: string, now: number): BookingRow[] {
     return this.db
       .all<BookingDbRow>(
