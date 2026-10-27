@@ -1,0 +1,11 @@
+# Host tests for the IDF-free parts of the firmware: cmake -S test_host -B build-host && cmake --build build-host && ./build-host/tests
+cmake_minimum_required(VERSION 3.16)
+project(timetoddler_firmware_host_tests CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-Wall -Wextra -Werror -fsanitize=address,undefined)
+add_link_options(-fsanitize=address,undefined)
+add_executable(tests tests.cpp ../main/protocol.cpp ../main/button.cpp)
+target_include_directories(tests PRIVATE ../main)
+enable_testing()
+add_test(NAME tests COMMAND tests)
