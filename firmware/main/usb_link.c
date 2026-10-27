@@ -92,7 +92,12 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, const tusb_contro
 static usb_link_rx_cb_t s_on_rx;
 static SemaphoreHandle_t s_tx_lock;
 
+// TinyUSB changed the size type; follow whichever version the component manager resolved.
+#if CFG_TUD_API_V0_19_COMPAT
+void tud_vendor_rx_cb(uint8_t idx, const uint8_t *buffer, uint16_t bufsize) {
+#else
 void tud_vendor_rx_cb(uint8_t idx, const uint8_t *buffer, uint32_t bufsize) {
+#endif
     (void)idx;
     if (buffer && bufsize) {  // unbuffered mode
         if (s_on_rx) s_on_rx(buffer, bufsize);
