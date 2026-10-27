@@ -7,6 +7,7 @@ import { DayViewPage } from './views/Day'
 import { WeekViewPage } from './views/Week'
 import { ProjectsView } from './views/Projects'
 import { SettingsView } from './views/Settings'
+import { DeviceProvider, useDevice } from './device/DeviceProvider'
 
 type Tab = 'track' | 'day' | 'week' | 'projects' | 'settings'
 
@@ -33,6 +34,7 @@ function Shell() {
   if (!snap) return <div className="loading">Lade…</div>
   const sync = snap.sync
   return (
+    <DeviceProvider snap={snap}>
     <div className="app">
       <nav className="tabs">
         {TABS.map(([id, label]) => (
@@ -41,6 +43,7 @@ function Shell() {
           </button>
         ))}
         <span className="spacer" />
+        <KnobChip onClick={() => setTab('settings')} />
         {sync.configured && (
           <span
             className={`sync ${sync.authError || sync.errors ? 'err' : sync.pending ? 'pending' : 'ok'}`}
@@ -61,6 +64,7 @@ function Shell() {
       </main>
       <ForgottenDay presenceStart={snap.state.presence?.start ?? null} lastEnd={snap.state.running?.start ?? null} />
     </div>
+    </DeviceProvider>
   )
 }
 
@@ -86,5 +90,14 @@ function ForgottenDay({ presenceStart, lastEnd }: { presenceStart: number | null
         </button>
       </div>
     </Modal>
+  )
+}
+
+function KnobChip({ onClick }: { onClick: () => void }) {
+  const dev = useDevice()
+  return (
+    <span className={`sync ${dev.connected ? 'ok' : 'off'}`} onClick={onClick} title={dev.error ?? undefined}>
+      Knopf: {dev.connected ? 'verbunden' : 'nicht verbunden'}
+    </span>
   )
 }

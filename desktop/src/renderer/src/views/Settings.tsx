@@ -3,6 +3,8 @@ import type { Snapshot } from '@shared/api'
 import type { Settings } from '@shared/types'
 import { api } from '../api'
 import { QueryInput, useAction } from '../ui'
+import { useDevice } from '../device/DeviceProvider'
+import { KnobPreview } from '../device/KnobPreview'
 
 export function SettingsView({ snap }: { snap: Snapshot }) {
   const run = useAction()
@@ -13,6 +15,7 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
   const [query, setQuery] = useState(s['youtrack.issueQuery'])
   const [lunch, setLunch] = useState(String(s['work.minLunchBreakMin']))
   const set = (patch: Partial<Settings>) => run(() => api.setSettings(patch))
+  const dev = useDevice()
 
   return (
     <div className="settings">
@@ -110,6 +113,19 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
 
       <section className="card">
         <h3>Drehknopf</h3>
+        <p>
+          {dev.connected ? (
+            <>
+              <b className="ok">Verbunden</b>
+              {dev.fw && ` · Firmware ${dev.fw}`}
+              {dev.serial && ` · Seriennummer ${dev.serial}`}
+            </>
+          ) : (
+            <span className="muted">Nicht verbunden – CrowPanel per USB anschließen.</span>
+          )}
+          {dev.error && <span className="err"> · {dev.error}</span>}
+        </p>
+        <KnobPreview steps={s['encoder.stepsPerDetent']} />
         <div className="form">
           <label>Zählschritte pro Rastung</label>
           <select value={s['encoder.stepsPerDetent']} onChange={(e) => set({ 'encoder.stepsPerDetent': Number(e.target.value) })}>
@@ -128,7 +144,11 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
           <label>LED-Ring</label>
           <input type="range" min={0} max={100} value={s['device.led']} onChange={(e) => set({ 'device.led': Number(e.target.value) })} />
         </div>
-        <p className="muted">Wirkt, sobald das CrowPanel per USB verbunden ist (folgt mit der Firmware).</p>
+        <p className="muted">
+          Bedienung: drehen wählt (nach 5 s ohne Eingabe zurück), drücken startet/stoppt, lang drücken bucht den laufenden Eintrag um,
+          doppelt drücken startet/beendet die Pause, aufs Display tippen holt das Fenster nach vorn. Unter Linux ist eine udev-Regel nötig
+          (siehe README).
+        </p>
       </section>
     </div>
   )

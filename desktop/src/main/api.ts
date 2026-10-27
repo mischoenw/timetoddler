@@ -89,6 +89,8 @@ export function createApi(deps: ApiDeps): MainApi {
     stop: () => svc.stop(),
     toggle: (id) => svc.toggle(id),
     rebook: (id) => svc.rebook(id),
+    pressDefault: () => svc.pressDefault(),
+    togglePause: () => svc.togglePause(),
     setRunningNote: (note) => svc.setRunningNote(note),
     come: () => svc.come(),
     pauseStart: () => svc.pauseStart(),

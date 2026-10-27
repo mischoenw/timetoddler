@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } from 'electron'
 import { join } from 'node:path'
 import { IPC_CHANGED, IPC_INVOKE, type ApiMethod, type IpcResult } from '@shared/api'
+import { USB_PRODUCT_ID, USB_VENDOR_ID } from '@shared/protocol'
 import { formatHM, formatHMS } from '@shared/timecalc'
 import { openDb } from '@core/db'
 import { Repo } from '@core/repo'
@@ -41,6 +42,20 @@ function toggleWindow(): void {
   else showWindow()
 }
 
+const isKnob = (d: { vendorId?: number; productId?: number }): boolean =>
+  d.vendorId === USB_VENDOR_ID && d.productId === USB_PRODUCT_ID
+
+/** WebUSB: grant the knob without a chooser dialog, deny everything else. */
+function allowKnobUsb(): void {
+  const ses = session.defaultSession
+  ses.setPermissionCheckHandler((_wc, permission) => permission === 'usb')
+  ses.setDevicePermissionHandler((details) => details.deviceType === 'usb' && isKnob(details.device as { vendorId?: number; productId?: number }))
+  ses.on('select-usb-device', (event, details, callback) => {
+    event.preventDefault()
+    callback(details.deviceList.find(isKnob)?.deviceId)
+  })
+}
+
 function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
     width: 1100,
@@ -55,7 +70,9 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // The knob link runs in the renderer and must keep working while the window is hidden.
+      backgroundThrottling: false
     }
   })
   w.on('ready-to-show', () => w.show())
@@ -239,6 +256,7 @@ async function main(): Promise<void> {
     /* keep running in the tray */
   })
 
+  allowKnobUsb()
   win = createWindow()
   win.webContents.on('did-finish-load', () => updateTray())
 }

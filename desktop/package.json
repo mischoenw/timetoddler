@@ -25,6 +25,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/sql.js": "^1.4.11",
+    "@types/w3c-web-usb": "^1.0.14",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.8.3",
     "electron-builder": "^26.15.3",
@@ -68,7 +69,12 @@
       "syncDesktopName": true,
       "maintainer": "Michael Schönwiese <31521592+mischoenw@users.noreply.github.com>"
     },
-    "publish": null
+    "publish": null,
+    "deb": {
+      "fpm": [
+        "build/70-timetoddler.rules=/usr/lib/udev/rules.d/70-timetoddler.rules"
+      ]
+    }
   },
   "author": {
     "name": "Michael Schönwiese",

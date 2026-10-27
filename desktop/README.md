@@ -33,6 +33,13 @@ npm run dist       # Installer nach dist/ (Windows NSIS, macOS dmg, Linux AppIma
 - Netz- und Serverfehler: automatische Wiederholung (30 s bis 30 min). 401/403 stoppt die Synchronisation bis „Verbinden & testen“.
 - Der Token liegt verschlüsselt (Schlüsselbund des Systems) in `userData/youtrack.token`, nicht in der Datenbank.
 
+## Drehknopf (CrowPanel 1.46")
+
+Die App findet den Knopf automatisch per WebUSB (VID `303a`, PID `4011`), ein Auswahldialog erscheint nicht. Ohne Gerät lässt sich alles im Simulator unter Einstellungen → Drehknopf ausprobieren.
+
+- **Windows/macOS:** kein Treiber nötig (die Firmware meldet WinUSB über MS-OS-2.0-Deskriptoren).
+- **Linux:** Das `.deb` installiert `/usr/lib/udev/rules.d/70-timetoddler.rules`. Beim AppImage die Regel aus `build/70-timetoddler.rules` dorthin kopieren und `sudo udevadm control --reload && sudo udevadm trigger` ausführen.
+
 ## Daten
 
 `userData/timetoddler.sqlite` (Windows `%APPDATA%\TimeToddler`, macOS `~/Library/Application Support/TimeToddler`, Linux `~/.config/TimeToddler`). Für Tests lässt sich der Pfad mit `TIMETODDLER_DB` umlenken.

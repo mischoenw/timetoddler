@@ -1,0 +1,2 @@
+# TimeToddler knob (CrowPanel 1.46", development IDs): let the logged-in user open it via WebUSB.
+SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ATTR{idProduct}=="4011", MODE="0660", TAG+="uaccess"

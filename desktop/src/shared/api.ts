@@ -35,6 +35,8 @@ export interface TtApi {
   stop(): void
   toggle(projectId: number): void
   rebook(projectId: number): void
+  pressDefault(): void
+  togglePause(): void
   setRunningNote(note: string): void
   come(): void
   pauseStart(): void
