@@ -168,7 +168,8 @@ async function main(): Promise<void> {
       st.mode === 'absent'
         ? { label: 'Kommen', click: () => svc.come() }
         : { label: st.mode === 'break' ? 'Pause beenden' : 'Pause', click: () => svc.togglePause() },
-      { label: 'Gehen', enabled: st.mode !== 'absent', click: () => svc.go() }
+      { label: 'Gehen', enabled: st.mode !== 'absent', click: () => svc.go() },
+      { label: 'Gehen (Arztbesuch)', enabled: st.mode !== 'absent', click: () => svc.go('doctor') }
     ]
     // The dock menu gets "Quit" from macOS itself.
     if (!forDock) {

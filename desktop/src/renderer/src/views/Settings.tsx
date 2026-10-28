@@ -1,10 +1,21 @@
 import { useState } from 'react'
+import { STATES } from '@shared/holidays'
 import type { Snapshot } from '@shared/api'
 import type { Settings } from '@shared/types'
 import { api } from '../api'
 import { QueryInput, useAction } from '../ui'
 import { useDevice } from '../device/DeviceProvider'
 import { KnobPreview } from '../device/KnobPreview'
+
+const WEEKDAYS: [number, string][] = [
+  [1, 'Mo'],
+  [2, 'Di'],
+  [3, 'Mi'],
+  [4, 'Do'],
+  [5, 'Fr'],
+  [6, 'Sa'],
+  [0, 'So']
+]
 
 export function SettingsView({ snap }: { snap: Snapshot }) {
   const run = useAction()
@@ -14,6 +25,10 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
   const [token, setToken] = useState('')
   const [query, setQuery] = useState(s['youtrack.issueQuery'])
   const [lunch, setLunch] = useState(String(s['work.minLunchBreakMin']))
+  const [target, setTarget] = useState(
+    `${String(Math.floor(s['work.dailyTargetMin'] / 60)).padStart(2, '0')}:${String(s['work.dailyTargetMin'] % 60).padStart(2, '0')}`
+  )
+  const [vacation, setVacation] = useState(String(s['vacation.daysPerYear']))
   const set = (patch: Partial<Settings>) => run(() => api.setSettings(patch))
   const dev = useDevice()
 
@@ -107,6 +122,66 @@ export function SettingsView({ snap }: { snap: Snapshot }) {
               }}
             />
             min am Stück bei mehr als 6 h (0 = aus)
+          </div>
+          <label>Sollarbeitszeit</label>
+          <div className="row">
+            <input
+              type="time"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              onBlur={() => {
+                const [h, m] = target.split(':').map(Number)
+                const n = Math.max(0, Math.min(24 * 60, (h || 0) * 60 + (m || 0)))
+                if (n !== s['work.dailyTargetMin']) set({ 'work.dailyTargetMin': n })
+              }}
+            />
+            Stunden pro Arbeitstag
+          </div>
+          <label>Arbeitstage</label>
+          <div className="row">
+            {WEEKDAYS.map(([d, label]) => (
+              <label key={d} className="check">
+                <input
+                  type="checkbox"
+                  checked={s['work.workdays'].includes(d)}
+                  onChange={(e) =>
+                    set({ 'work.workdays': e.target.checked ? [...s['work.workdays'], d].sort() : s['work.workdays'].filter((x) => x !== d) })
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <label>Bundesland (Feiertage)</label>
+          <select value={s['work.state']} onChange={(e) => set({ 'work.state': e.target.value as Settings['work.state'] })}>
+            <option value="">– nur bundesweite Feiertage –</option>
+            {STATES.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <span />
+          <label className="check">
+            <input type="checkbox" checked={s['work.regionalHolidays']} onChange={(e) => set({ 'work.regionalHolidays': e.target.checked })} />
+            Regionale Feiertage einbeziehen (Mariä Himmelfahrt in Bayern, Fronleichnam in Teilen von Sachsen und Thüringen)
+          </label>
+          <label>Urlaubsanspruch</label>
+          <div className="row">
+            <input
+              type="number"
+              min={0}
+              max={60}
+              step={0.5}
+              value={vacation}
+              onChange={(e) => setVacation(e.target.value)}
+              onBlur={() => {
+                const n = Math.max(0, Math.min(60, Math.round((Number(vacation) || 0) * 2) / 2))
+                setVacation(String(n))
+                if (n !== s['vacation.daysPerYear']) set({ 'vacation.daysPerYear': n })
+              }}
+            />
+            Tage pro Jahr
           </div>
         </div>
       </section>

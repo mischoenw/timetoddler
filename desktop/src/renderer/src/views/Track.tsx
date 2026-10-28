@@ -1,39 +1,75 @@
 import { useState } from 'react'
 import type { Snapshot } from '@shared/api'
-import { formatHM, formatHMS, localDay } from '@shared/timecalc'
+import { formatHM, formatHMS, formatTime, localDay } from '@shared/timecalc'
 import { tileOrder } from '@shared/tiles'
-import type { Project } from '@shared/types'
+import type { DayView, Project } from '@shared/types'
 import { api, useLive, useNow } from '../api'
 import { Dot, useAction } from '../ui'
 
-export function WorkBar({ snap }: { snap: Snapshot }) {
+/** Leave button with the variant "Arztbesuch" in a dropdown. */
+function GoButton() {
+  const run = useAction()
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="split" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}>
+      <button className="go" onClick={() => run(() => api.go())}>
+        Gehen
+      </button>
+      <button className="go caret" aria-label="Weitere Arten zu gehen" onClick={() => setOpen((o) => !o)}>
+        ▾
+      </button>
+      {open && (
+        <div className="menu">
+          <button onClick={() => (setOpen(false), run(() => api.go()))}>Gehen</button>
+          <button
+            title="Zeit beim Arzt zählt als Arbeitszeit. Ohne erneutes Kommen gilt der Tag als erfüllt (keine Überstunden)."
+            onClick={() => (setOpen(false), run(() => api.go('doctor'), 'Arztbesuch eingetragen'))}
+          >
+            Gehen (Arztbesuch)
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function WorkBar({ snap, day }: { snap: Snapshot; day?: DayView }) {
   const run = useAction()
   const now = useNow()
   const { mode, pause } = snap.state
   // todayNetSec is computed at snapshot time; keep it ticking while working.
   const net = snap.todayNetSec + (mode !== 'absent' && mode !== 'break' ? (now - snap.now) / 1000 : 0)
+  const cal = day?.calendar
+  const last = day?.presences[day.presences.length - 1]
+  const atDoctor = mode === 'absent' && last?.endReason === 'doctor' && last.end !== null
   return (
     <div className={`workbar ${mode}`}>
       <div>
-        <strong>{mode === 'absent' ? 'Abwesend' : mode === 'break' ? 'Pause' : 'Anwesend'}</strong>
+        <strong>{mode === 'absent' ? (atDoctor ? 'Arztbesuch' : 'Abwesend') : mode === 'break' ? 'Pause' : 'Anwesend'}</strong>
         {mode === 'break' && pause && <span className="muted"> seit {formatHMS((now - pause.start) / 1000)}</span>}
+        {atDoctor && <span className="muted"> seit {formatTime(last!.end!)} – ohne erneutes Kommen gilt der Tag als erfüllt</span>}
         <span className="muted"> · Arbeitszeit heute {formatHM(net)}</span>
+        {day && day.summary.targetSec > 0 && <span className="muted"> von {formatHM(day.summary.targetSec)}</span>}
+        {cal?.holiday && <span className="badge warn">Feiertag: {cal.holiday}</span>}
+        {cal?.absence && <span className="badge ok">{cal.absence.half ? 'Halber Urlaubstag' : 'Urlaub'}</span>}
       </div>
       <div className="row">
         {mode === 'absent' ? (
-          <button className="primary" onClick={() => run(() => api.come())}>
+          <button className="come" onClick={() => run(() => api.come())}>
             Kommen
           </button>
         ) : (
           <>
             {mode === 'break' ? (
-              <button className="primary" onClick={() => run(() => api.pauseEnd())}>
+              <button className="pause active" onClick={() => run(() => api.pauseEnd())}>
                 Pause beenden
               </button>
             ) : (
-              <button onClick={() => run(() => api.pauseStart())}>Pause</button>
+              <button className="pause" onClick={() => run(() => api.pauseStart())}>
+                Pause
+              </button>
             )}
-            <button onClick={() => run(() => api.go())}>Gehen</button>
+            <GoButton />
           </>
         )}
       </div>
@@ -106,7 +142,7 @@ export function TrackView({ snap, onOpenDay }: { snap: Snapshot; onOpenDay: (day
 
   return (
     <div className="track">
-      <WorkBar snap={snap} />
+      <WorkBar snap={snap} day={day} />
       <RunningCard snap={snap} projects={tiles} />
       {day && day.summary.hints.length > 0 && (
         <div className="hints" onClick={() => onOpenDay(today)}>

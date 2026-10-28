@@ -7,14 +7,16 @@ import { DayViewPage } from './views/Day'
 import { WeekViewPage } from './views/Week'
 import { ProjectsView } from './views/Projects'
 import { SettingsView } from './views/Settings'
+import { VacationView } from './views/Vacation'
 import { DeviceProvider, useDevice } from './device/DeviceProvider'
 
-type Tab = 'track' | 'day' | 'week' | 'projects' | 'settings'
+type Tab = 'track' | 'day' | 'week' | 'vacation' | 'projects' | 'settings'
 
 const TABS: [Tab, string][] = [
   ['track', 'Erfassen'],
   ['day', 'Tag'],
   ['week', 'Woche'],
+  ['vacation', 'Urlaub'],
   ['projects', 'Tätigkeiten'],
   ['settings', 'Einstellungen']
 ]
@@ -59,6 +61,7 @@ function Shell() {
         {tab === 'track' && <TrackView snap={snap} onOpenDay={(d) => (setDay(d), setTab('day'))} />}
         {tab === 'day' && <DayViewPage snap={snap} day={day} setDay={setDay} />}
         {tab === 'week' && <WeekViewPage snap={snap} day={day} setDay={setDay} onOpenDay={(d) => (setDay(d), setTab('day'))} />}
+        {tab === 'vacation' && <VacationView snap={snap} />}
         {tab === 'projects' && <ProjectsView snap={snap} />}
         {tab === 'settings' && <SettingsView snap={snap} />}
       </main>

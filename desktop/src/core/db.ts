@@ -59,6 +59,19 @@ const MIGRATIONS: string[] = [
   );
   CREATE TABLE setting(key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE remote_cache(key TEXT PRIMARY KEY, value TEXT NOT NULL, fetched_at INTEGER NOT NULL);
+  `,
+  `
+  -- Days off. Kind is validated in the service so new kinds need no migration.
+  CREATE TABLE absence(
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL,
+    first_day TEXT NOT NULL,
+    last_day TEXT NOT NULL,
+    half INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX absence_days ON absence(first_day, last_day);
+  ALTER TABLE presence ADD COLUMN end_reason TEXT;
   `
 ]
 

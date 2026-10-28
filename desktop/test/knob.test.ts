@@ -82,7 +82,7 @@ describe('knob', () => {
   it('builds the display state', () => {
     const snap: Snapshot = {
       now: 10_000,
-      state: { mode: 'running', running: { id: 9, projectId: 2, start: 4_000, end: null, note: '', ytIssue: null }, presence: { id: 1, start: 0, end: null }, pause: null },
+      state: { mode: 'running', running: { id: 9, projectId: 2, start: 4_000, end: null, note: '', ytIssue: null }, presence: { id: 1, start: 0, end: null, endReason: null }, pause: null },
       projects,
       settings: DEFAULT_SETTINGS,
       sync: { configured: false, hasToken: false, tokenProtection: 'os', authError: false, lastError: null, pending: 0, errors: 0, lastRun: null, lastPull: null },

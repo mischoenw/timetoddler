@@ -2,7 +2,7 @@ import type { Snapshot } from '@shared/api'
 import { addDays, formatHM, weekStart } from '@shared/timecalc'
 import { api, useLive } from '../api'
 import { Dot, useAction } from '../ui'
-import { DayNav } from './Day'
+import { DayNav, formatSignedHM } from './Day'
 
 const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
@@ -49,6 +49,10 @@ export function WeekViewPage(props: { snap: Snapshot; day: string; setDay: (d: s
             {w.days.map((d, i) => (
               <th key={d} className="num link" onClick={() => props.onOpenDay(d)}>
                 {WD[i]} {d.slice(8)}.{d.slice(5, 7)}.
+                {data.calendar[i]?.holiday && <span className="daytag">{data.calendar[i].holiday}</span>}
+                {data.calendar[i]?.absence && data.calendar[i].workday && (
+                  <span className="daytag vac">{data.calendar[i].absence!.half ? '½ Urlaub' : 'Urlaub'}</span>
+                )}
               </th>
             ))}
             <th className="num">Summe</th>
@@ -90,6 +94,29 @@ export function WeekViewPage(props: { snap: Snapshot; day: string; setDay: (d: s
             ))}
             <td className="num">
               <strong>{formatHM(total(w.netPerDay))}</strong>
+            </td>
+          </tr>
+          <tr>
+            <td>Soll</td>
+            {w.targetPerDay.map((s, i) => (
+              <td key={i} className="num">
+                {s ? formatHM(s) : ''}
+              </td>
+            ))}
+            <td className="num">{formatHM(total(w.targetPerDay))}</td>
+          </tr>
+          <tr>
+            <td>Saldo</td>
+            {w.creditedPerDay.map((c, i) => {
+              const b = c - w.targetPerDay[i]
+              return (
+                <td key={i} className={`num ${b > 0 ? 'ok' : b < 0 ? 'err' : ''}`}>
+                  {c || w.targetPerDay[i] ? formatSignedHM(b) : ''}
+                </td>
+              )
+            })}
+            <td className="num">
+              <strong>{formatSignedHM(total(w.creditedPerDay) - total(w.targetPerDay))}</strong>
             </td>
           </tr>
         </tfoot>

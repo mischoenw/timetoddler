@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '@shared/api'
 import { addDays, dayRange, formatHM, localDay } from '@shared/timecalc'
-import type { DayView, Project } from '@shared/types'
+import type { DayCalendar, DayView, PresenceEndReason, Project } from '@shared/types'
 import { api, useLive } from '../api'
 import { BookingBadge, DateTimeInput, useAction } from '../ui'
 
@@ -16,10 +16,10 @@ export function DayNav({ day, setDay, step }: { day: string; setDay: (d: string)
   )
 }
 
-function Stat({ label, sec, cls }: { label: string; sec: number; cls?: string }) {
+function Stat({ label, sec, cls, signed }: { label: string; sec: number; cls?: string; signed?: boolean }) {
   return (
     <div className={`stat ${cls ?? ''}`}>
-      <div className="v">{formatHM(sec)}</div>
+      <div className="v">{signed ? formatSignedHM(sec) : formatHM(sec)}</div>
       <div className="l">{label}</div>
     </div>
   )
@@ -37,15 +37,26 @@ function IntervalRow(props: {
   start: number
   end: number | null
   overlap?: boolean
-  onSave: (start: number, end: number | null) => Promise<unknown>
+  /** Only for attendance: how it ended. */
+  endReason?: PresenceEndReason | null
+  onSave: (start: number, end: number | null, endReason: PresenceEndReason | null) => Promise<unknown>
   onDelete: () => void
 }) {
   const [start, setStart] = useDraft(props.start)
   const [end, setEnd] = useDraft(props.end)
-  const dirty = start !== props.start || end !== props.end
+  const [reason, setReason] = useDraft(props.endReason ?? null)
+  const dirty = start !== props.start || end !== props.end || reason !== (props.endReason ?? null)
   return (
     <tr className={props.overlap ? 'overlap' : undefined} title={props.overlap ? 'Überschneidet sich mit einer anderen Anwesenheit' : undefined}>
-      <td>{props.kind}</td>
+      <td>
+        {props.kind}
+        {props.endReason !== undefined && end !== null && (
+          <select className="reason" value={reason ?? ''} onChange={(e) => setReason(e.target.value === 'doctor' ? 'doctor' : null)} title="Art des Gehens">
+            <option value="">Gehen</option>
+            <option value="doctor">Gehen (Arztbesuch)</option>
+          </select>
+        )}
+      </td>
       <td>
         <DateTimeInput value={start} onChange={(v) => v !== null && setStart(v)} />
       </td>
@@ -55,7 +66,7 @@ function IntervalRow(props: {
       <td>{end === null ? 'läuft' : formatHM((end - start) / 1000)}</td>
       <td className="actions">
         {dirty && (
-          <button className="primary" onClick={() => props.onSave(start, end)}>
+          <button className="primary" onClick={() => props.onSave(start, end, reason)}>
             Speichern
           </button>
         )}
@@ -132,6 +143,35 @@ function EntryRow({ e, projects, onSaved }: { e: DayView['entries'][number]; pro
   )
 }
 
+export function formatSignedHM(sec: number): string {
+  const m = Math.round(sec / 60)
+  return `${m < 0 ? '−' : m > 0 ? '+' : '±'}${formatHM(Math.abs(m) * 60)}`
+}
+
+/** Holiday / vacation of the day, with quick vacation booking. */
+function CalendarBanner({ day, cal }: { day: string; cal: DayCalendar }) {
+  const run = useAction()
+  const book = (half: boolean) =>
+    run(() => api.createAbsence({ kind: 'vacation', firstDay: day, lastDay: day, half, note: '' }), half ? 'Halber Urlaubstag eingetragen' : 'Urlaubstag eingetragen')
+  if (cal.holiday) return <div className="daybanner holiday">Feiertag: <b>{cal.holiday}</b></div>
+  if (cal.absence)
+    return (
+      <div className="daybanner vacation">
+        <b>{cal.absence.half ? 'Halber Urlaubstag' : 'Urlaub'}</b>
+        <button onClick={() => confirm('Urlaub entfernen? Bei mehrtägigem Urlaub den ganzen Zeitraum.') && run(() => api.deleteAbsence(cal.absence!.id), 'Urlaub entfernt')}>
+          Entfernen
+        </button>
+      </div>
+    )
+  if (!cal.workday) return null
+  return (
+    <div className="row" style={{ margin: '8px 0' }}>
+      <button onClick={() => book(false)}>Urlaubstag eintragen</button>
+      <button onClick={() => book(true)}>Halben Urlaubstag</button>
+    </div>
+  )
+}
+
 export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string; setDay: (d: string) => void }) {
   const run = useAction()
   const { data, reload } = useLive(() => api.day(day), [day])
@@ -176,7 +216,14 @@ export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string
         </div>
       </div>
 
+      <CalendarBanner day={day} cal={data.calendar} />
+
       <div className="stats">
+        {s.targetSec > 0 && <Stat label="Soll" sec={s.targetSec} />}
+        {(s.targetSec > 0 || s.creditedSec > 0) && <Stat label={s.doctorSec > 0 ? 'Ist inkl. Arztbesuch' : 'Ist'} sec={s.creditedSec} />}
+        {(s.targetSec > 0 || s.creditedSec > 0) && (
+          <Stat label="Saldo" sec={s.balanceSec} signed cls={s.balanceSec > 0 ? 'pos' : s.balanceSec < 0 ? 'neg' : ''} />
+        )}
         <Stat label="Anwesenheit" sec={s.presenceSec} />
         <Stat label="Pausen" sec={s.pauseSec} />
         <Stat label="Netto-Arbeitszeit" sec={s.netSec} cls="main" />
@@ -212,8 +259,9 @@ export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string
               start={i.start}
               end={i.end}
               overlap={i.kind === 'Anwesenheit' && s.overlapPresenceIds.includes(i.id)}
-              onSave={(st, en) =>
-                run(() => (i.kind === 'Pause' ? api.updatePause(i.id, st, en) : api.updatePresence(i.id, st, en)), 'Gespeichert')
+              endReason={'endReason' in i ? i.endReason : undefined}
+              onSave={(st, en, r) =>
+                run(() => (i.kind === 'Pause' ? api.updatePause(i.id, st, en) : api.updatePresence(i.id, st, en, r)), 'Gespeichert')
               }
               onDelete={() =>
                 confirm(`${i.kind} löschen?${i.kind === 'Anwesenheit' ? ' Zugehörige Pausen werden mitgelöscht.' : ''}`) &&

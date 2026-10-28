@@ -73,6 +73,8 @@ const H = 3600
 export interface HintOptions {
   /** Minimum length of one uninterrupted break on days over 6 h; 0 = off. */
   minLunchBreakMin?: number
+  /** Target working time of the day in seconds (default 0). */
+  targetSec?: number
 }
 
 export function daySummary(day: string, data: TimeData, now: number, opts: HintOptions = {}): DaySummary {
@@ -120,8 +122,17 @@ export function daySummary(day: string, data: TimeData, now: number, opts: HintO
     if (p.end === null && p.start < from) hints.push({ level: 'warn', text: 'Anwesenheit vom Vortag ist noch offen (Gehen vergessen?)' })
   }
 
+  const targetSec = opts.targetSec ?? 0
+  // Every block touching the day counts here, however short (leaving right after coming is still a visit).
+  const touching = data.presences.filter((p) => p.start < to && (p.end ?? now) >= from).sort((a, b) => a.start - b.start)
+  const { doctorSec, creditedSec } = credited(touching, netSec, targetSec, from, to, now)
+
   return {
     day,
+    targetSec,
+    doctorSec,
+    creditedSec,
+    balanceSec: creditedSec - targetSec,
     presenceSec,
     pauseSec,
     netSec,
@@ -133,19 +144,47 @@ export function daySummary(day: string, data: TimeData, now: number, opts: HintO
   }
 }
 
-export function weekSummary(anyDay: string, data: TimeData, now: number): WeekSummary {
+/**
+ * Doctor's appointments count as working time: the gap until the next "Kommen" that day. Without a
+ * return the employee counts as present until the end of the working day: the target is met, no overtime.
+ */
+function credited(
+  inDay: Presence[],
+  netSec: number,
+  targetSec: number,
+  from: number,
+  to: number,
+  now: number
+): { doctorSec: number; creditedSec: number } {
+  let doctorSec = 0
+  let noReturn = false
+  for (const p of inDay) {
+    if (p.endReason !== 'doctor' || p.end === null) continue
+    const next = inDay.find((q) => q !== p && q.start >= p.end!)
+    if (next) doctorSec += overlapSec(p.end, next.start, from, to, now)
+    else noReturn = true
+  }
+  if (noReturn && targetSec > 0) return { doctorSec: Math.max(0, targetSec - netSec - doctorSec), creditedSec: targetSec }
+  return { doctorSec, creditedSec: netSec + doctorSec }
+}
+
+export function weekSummary(anyDay: string, data: TimeData, now: number, targets: number[] = []): WeekSummary {
   const first = weekStart(anyDay)
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i))
   const perProject: Record<number, number[]> = {}
   const netPerDay: number[] = []
+  const targetPerDay: number[] = []
+  const creditedPerDay: number[] = []
   days.forEach((day, i) => {
-    const s = daySummary(day, data, now)
+    const s = daySummary(day, data, now, { targetSec: targets[i] ?? 0 })
     netPerDay.push(s.netSec)
+    targetPerDay.push(s.targetSec)
+    creditedPerDay.push(s.creditedSec)
     for (const [pid, sec] of Object.entries(s.perProject)) {
       ;(perProject[Number(pid)] ??= Array(7).fill(0))[i] = sec
     }
   })
-  return { days, perProject, netPerDay }
+  return { days, perProject, netPerDay, targetPerDay, creditedPerDay }
 }
 
 /** `H:MM` */

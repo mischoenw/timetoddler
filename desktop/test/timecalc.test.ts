@@ -29,7 +29,7 @@ describe('timecalc', () => {
     const s = daySummary(
       '2026-10-21',
       {
-        presences: [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 15:00') }],
+        presences: [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 15:00'), endReason: null }],
         pauses: [{ id: 1, presenceId: 1, start: at('2026-10-21 12:00'), end: at('2026-10-21 12:20'), resumeProjectId: null }],
         entries: [{ id: 1, projectId: 7, start: at('2026-10-21 08:00'), end: at('2026-10-21 12:00'), note: '', ytIssue: null }]
       },
@@ -43,7 +43,7 @@ describe('timecalc', () => {
 
   it('flags a missing lunch break of the configured minimum', () => {
     const data = (pauses: [string, string][]) => ({
-      presences: [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 16:00') }],
+      presences: [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 16:00'), endReason: null }],
       pauses: pauses.map(([s, e], i) => ({ id: i + 1, presenceId: 1, start: at(`2026-10-21 ${s}`), end: at(`2026-10-21 ${e}`), resumeProjectId: null })),
       entries: []
     })
@@ -63,7 +63,7 @@ describe('timecalc', () => {
 
   it('flags overlapping presences as error', () => {
     const pres = (xs: [string, string | null][]) =>
-      xs.map(([s, e], i) => ({ id: i + 1, start: at(`2026-10-21 ${s}`), end: e ? at(`2026-10-21 ${e}`) : null }))
+      xs.map(([s, e], i) => ({ id: i + 1, start: at(`2026-10-21 ${s}`), end: e ? at(`2026-10-21 ${e}`) : null, endReason: null }))
     const sum = (xs: [string, string | null][]) => daySummary('2026-10-21', { presences: pres(xs), pauses: [], entries: [] }, at('2026-10-21 18:00'))
     const s = sum([
       ['08:00', '12:00'],
@@ -87,7 +87,7 @@ describe('timecalc', () => {
 
   it('counts open intervals up to now and flags a forgotten day', () => {
     const now = at('2026-10-22 09:00')
-    const data = { presences: [{ id: 1, start: at('2026-10-21 08:00'), end: null }], pauses: [], entries: [] }
+    const data = { presences: [{ id: 1, start: at('2026-10-21 08:00'), end: null, endReason: null }], pauses: [], entries: [] }
     const s = daySummary('2026-10-22', data, now)
     expect(s.presenceSec).toBe(9 * 3600)
     expect(s.hints.some((h) => h.text.includes('Vortag'))).toBe(true)

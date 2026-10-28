@@ -150,3 +150,30 @@ b.ok, .ok { color: var(--ok); }
 .k-client { font-size: 11px; opacity: 0.7; }
 .k-time { font-size: 26px; font-weight: 300; font-variant-numeric: tabular-nums; }
 .k-day { font-size: 11px; opacity: 0.6; margin-top: 4px; }
+
+/* Attendance buttons: Kommen green, Pause orange, Gehen red */
+:root { --come: #1f9d55; --go: #d0312d; }
+button.come { background: var(--come); border-color: var(--come); color: #fff; font-weight: 600; }
+button.pause { background: var(--pause); border-color: var(--pause); color: #fff; font-weight: 600; }
+button.pause.active { box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.15); }
+button.go { background: var(--go); border-color: var(--go); color: #fff; font-weight: 600; }
+button.come:hover:not(:disabled), button.pause:hover:not(:disabled), button.go:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
+.split { position: relative; display: inline-flex; }
+.split > button.go:first-child { border-radius: 6px 0 0 6px; }
+.split > button.go.caret { border-radius: 0 6px 6px 0; padding: 6px 8px; border-left: 1px solid rgb(255 255 255 / 0.35); }
+.split .menu { position: absolute; right: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.15); display: flex; flex-direction: column; min-width: 190px; z-index: 5; overflow: hidden; }
+.split .menu button { border: none; border-radius: 0; text-align: left; padding: 8px 12px; background: none; }
+.split .menu button:hover { background: color-mix(in srgb, var(--go) 10%, transparent); }
+.workbar .badge { margin-left: 8px; }
+.daybanner { padding: 8px 12px; border-radius: 8px; margin: 8px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.daybanner.holiday { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.daybanner.vacation { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+th .daytag { display: block; font-size: 10px; font-weight: 400; color: var(--warn); }
+th .daytag.vac { color: var(--ok); }
+.stat.pos .v { color: var(--ok); }
+.stat.neg .v { color: var(--err); }
+.stat input.v { width: 90px; border: none; padding: 0; background: none; font-size: 22px; }
+select.reason { margin-left: 8px; font-size: 12px; padding: 2px 4px; }
+td.ok { color: var(--ok); }
+td.err { color: var(--err); }

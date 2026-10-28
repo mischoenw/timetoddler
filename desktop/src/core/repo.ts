@@ -1,6 +1,8 @@
 import type { Db } from './db'
 import {
   DEFAULT_SETTINGS,
+  type Absence,
+  type AbsenceInput,
   type BookingRow,
   type Entry,
   type EntryInput,
@@ -39,6 +41,7 @@ interface PresenceRow {
   id: number
   start_utc: number
   end_utc: number | null
+  end_reason?: Presence['endReason']
 }
 
 interface PauseRow extends PresenceRow {
@@ -84,7 +87,7 @@ const toEntry = (r: EntryRow): Entry => ({
   ytIssue: r.yt_issue
 })
 
-const toPresence = (r: PresenceRow): Presence => ({ id: r.id, start: r.start_utc, end: r.end_utc })
+const toPresence = (r: PresenceRow): Presence => ({ id: r.id, start: r.start_utc, end: r.end_utc, endReason: r.end_reason ?? null })
 
 const toPause = (r: PauseRow): Pause => ({
   id: r.id,
@@ -106,6 +109,24 @@ const toBooking = (r: BookingDbRow): BookingRow => ({
   attempts: r.attempts,
   nextTry: r.next_try,
   syncedAt: r.synced_at
+})
+
+interface AbsenceRow {
+  id: number
+  kind: Absence['kind']
+  first_day: string
+  last_day: string
+  half: number
+  note: string
+}
+
+const toAbsence = (r: AbsenceRow): Absence => ({
+  id: r.id,
+  kind: r.kind,
+  firstDay: r.first_day,
+  lastDay: r.last_day,
+  half: !!r.half,
+  note: r.note
 })
 
 const b = (v: boolean): number => (v ? 1 : 0)
@@ -232,13 +253,15 @@ export class Repo {
       .map(toPresence)
   }
 
-  createPresence(start: number, end: number | null): Presence {
-    const { id } = this.db.run('INSERT INTO presence(start_utc, end_utc) VALUES (?,?)', [start, end])
+  createPresence(start: number, end: number | null, endReason: Presence['endReason'] = null): Presence {
+    const { id } = this.db.run('INSERT INTO presence(start_utc, end_utc, end_reason) VALUES (?,?,?)', [start, end, endReason])
     return this.getPresence(id)!
   }
 
-  updatePresence(id: number, start: number, end: number | null): void {
-    this.db.run('UPDATE presence SET start_utc=?, end_utc=? WHERE id=?', [start, end, id])
+  /** `endReason` undefined keeps the stored reason. */
+  updatePresence(id: number, start: number, end: number | null, endReason?: Presence['endReason']): void {
+    if (endReason === undefined) this.db.run('UPDATE presence SET start_utc=?, end_utc=? WHERE id=?', [start, end, id])
+    else this.db.run('UPDATE presence SET start_utc=?, end_utc=?, end_reason=? WHERE id=?', [start, end, endReason, id])
   }
 
   deletePresence(id: number): void {
@@ -371,6 +394,47 @@ export class Repo {
   /** Makes queued rows due again (e.g. after the token was fixed). */
   resetBackoff(connector: string): void {
     this.db.run(`UPDATE booking SET next_try=0 WHERE connector = ? AND status IN ('pending','delete')`, [connector])
+  }
+
+  // ---- absences ---------------------------------------------------------
+
+  /** Absences touching [fromDay, toDay] (inclusive local days). */
+  absencesBetween(fromDay: string, toDay: string): Absence[] {
+    return this.db
+      .all<AbsenceRow>('SELECT * FROM absence WHERE first_day <= ? AND last_day >= ? ORDER BY first_day', [toDay, fromDay])
+      .map(toAbsence)
+  }
+
+  getAbsence(id: number): Absence | undefined {
+    const r = this.db.get<AbsenceRow>('SELECT * FROM absence WHERE id = ?', [id])
+    return r && toAbsence(r)
+  }
+
+  createAbsence(a: AbsenceInput): Absence {
+    const { id } = this.db.run('INSERT INTO absence(kind, first_day, last_day, half, note) VALUES (?,?,?,?,?)', [
+      a.kind,
+      a.firstDay,
+      a.lastDay,
+      b(a.half),
+      a.note
+    ])
+    return this.getAbsence(id)!
+  }
+
+  updateAbsence(id: number, a: AbsenceInput): Absence {
+    this.db.run('UPDATE absence SET kind=?, first_day=?, last_day=?, half=?, note=? WHERE id=?', [
+      a.kind,
+      a.firstDay,
+      a.lastDay,
+      b(a.half),
+      a.note,
+      id
+    ])
+    return this.getAbsence(id)!
+  }
+
+  deleteAbsence(id: number): void {
+    this.db.run('DELETE FROM absence WHERE id = ?', [id])
   }
 
   // ---- settings & cache -----------------------------------------------

@@ -26,7 +26,7 @@ describe('csv', () => {
 
   it('lists attendance chronologically', () => {
     const csv = attendanceCsv(
-      [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 16:00') }],
+      [{ id: 1, start: at('2026-10-21 08:00'), end: at('2026-10-21 16:00'), endReason: null }],
       [{ id: 1, presenceId: 1, start: at('2026-10-21 12:00'), end: at('2026-10-21 12:30'), resumeProjectId: null }],
       0
     )

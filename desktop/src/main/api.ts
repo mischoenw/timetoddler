@@ -95,14 +95,14 @@ export function createApi(deps: ApiDeps): MainApi {
     come: () => svc.come(),
     pauseStart: () => svc.pauseStart(),
     pauseEnd: () => svc.pauseEnd(),
-    go: () => svc.go(),
-    goAt: (at) => svc.goAt(at),
+    go: (reason) => svc.go(reason ?? null),
+    goAt: (at, reason) => svc.goAt(at, reason ?? null),
 
     createEntry: (e) => svc.createEntry(e),
     updateEntry: (id, p) => svc.updateEntry(id, p),
     deleteEntry: (id) => svc.deleteEntry(id),
     createPresence: (s, e) => svc.createPresence(s, e),
-    updatePresence: (id, s, e) => svc.updatePresence(id, s, e),
+    updatePresence: (id, s, e, r) => svc.updatePresence(id, s, e, r),
     deletePresence: (id) => svc.deletePresence(id),
     createPause: (s, e) => svc.createPause(s, e),
     updatePause: (id, s, e) => svc.updatePause(id, s, e),
@@ -184,12 +184,17 @@ export function createApi(deps: ApiDeps): MainApi {
         csv = entriesCsv(entries, projects, states, now)
       } else {
         const a = svc.attendanceBetween(from, to)
-        csv = attendanceCsv(a.presences, a.pauses, now)
+        csv = attendanceCsv(a.presences, a.pauses, now, svc.calendar(from, to))
       }
       // BOM so Excel detects UTF-8
       writeFileSync(res.filePath, '﻿' + csv, 'utf8')
       return res.filePath
     },
+    calendar: (from, to) => svc.calendar(from, to),
+    vacationAccount: (year) => svc.vacationAccount(year),
+    createAbsence: (a) => svc.createAbsence(a),
+    updateAbsence: (id, a) => svc.updateAbsence(id, a),
+    deleteAbsence: (id) => svc.deleteAbsence(id),
     toggleWindow: () => deps.toggleWindow()
   }
 }

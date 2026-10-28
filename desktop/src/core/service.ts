@@ -1,4 +1,9 @@
 import type {
+  PresenceEndReason,
+  Absence,
+  AbsenceInput,
+  DayCalendar,
+  VacationAccount,
   BookingRow,
   DayView,
   Entry,
@@ -15,6 +20,7 @@ import type {
 } from '@shared/types'
 import { addDays, dayRange, daySummary, formatTime, localDay, weekStart, weekSummary } from '@shared/timecalc'
 import { nextColor } from '@shared/tiles'
+import { absenceDays, calendarContext, calendarDay } from '@shared/calendar'
 import type { Repo } from './repo'
 import { CONNECTOR, entryState, reconcileEntry, requestBooking } from './booking'
 
@@ -134,19 +140,22 @@ export class AppService {
     else this.pauseStart()
   }
 
-  go(): void {
-    this.goAt(this.clock())
+  go(reason: PresenceEndReason | null = null): void {
+    this.goAt(this.clock(), reason)
   }
 
-  /** Ends everything at `at` (also used to close a forgotten day). */
-  goAt(at: number): void {
+  /**
+   * Ends everything at `at` (also used to close a forgotten day). `doctor`: leaving for a doctor's
+   * appointment; without a later "Kommen" that day the target counts as fulfilled.
+   */
+  goAt(at: number, reason: PresenceEndReason | null = null): void {
     this.repo.tx(() => {
       const running = this.repo.runningEntry()
       if (running) this.stopEntry(running, Math.max(at, running.start))
       const pause = this.repo.openPause()
       if (pause) this.repo.updatePause(pause.id, pause.start, Math.max(at, pause.start))
       const presence = this.repo.openPresence()
-      if (presence) this.repo.updatePresence(presence.id, presence.start, Math.max(at, presence.start))
+      if (presence) this.repo.updatePresence(presence.id, presence.start, Math.max(at, presence.start), reason)
     })
   }
 
@@ -213,12 +222,12 @@ export class AppService {
     return this.repo.createPresence(start, end)
   }
 
-  updatePresence(id: number, start: number, end: number | null): void {
+  updatePresence(id: number, start: number, end: number | null, endReason?: PresenceEndReason | null): void {
     this.validateInterval(start, end)
     this.validatePresenceOverlap(start, end, id)
     const open = this.repo.openPresence()
     if (end === null && open && open.id !== id) throw new ValidationError('Es ist bereits eine Anwesenheit offen')
-    this.repo.updatePresence(id, start, end)
+    this.repo.updatePresence(id, start, end, end === null ? null : endReason)
   }
 
   private validatePresenceOverlap(start: number, end: number | null, id: number | null): void {
@@ -355,9 +364,17 @@ export class AppService {
       CONNECTOR
     )
     const projects = new Map(this.repo.listProjects().map((p) => [p.id, p]))
+    const calendar = this.calendar(day, day)[0]
+    const summary = daySummary(day, data, this.clock(), {
+      minLunchBreakMin: this.settings()['work.minLunchBreakMin'],
+      targetSec: this.targetSec(calendar)
+    })
+    const off = calendar.holiday ?? (calendar.absence && !calendar.absence.half ? 'Urlaub' : null)
+    if (off && summary.netSec > 0) summary.hints.unshift({ level: 'info', text: `Arbeitszeit erfasst, obwohl ${calendar.holiday ? `Feiertag (${off})` : 'Urlaub'} ist` })
     return {
       day,
-      summary: daySummary(day, data, this.clock(), { minLunchBreakMin: this.settings()['work.minLunchBreakMin'] }),
+      summary,
+      calendar,
       entries: data.entries.map((e) => ({
         ...e,
         booking: entryState(e, projects.get(e.projectId), rows),
@@ -366,6 +383,23 @@ export class AppService {
       presences: data.presences,
       pauses: data.pauses
     }
+  }
+
+  /** Target working time of a day: none on days off, half on a half vacation day. */
+  private targetSec(c: DayCalendar): number {
+    if (!c.workday) return 0
+    const full = this.settings()['work.dailyTargetMin'] * 60
+    if (!c.absence) return full
+    return c.absence.half ? full / 2 : 0
+  }
+
+  /** Holiday, absence and working-day flag for each day of [fromDay, toDay]. */
+  calendar(fromDay: string, toDay: string): DayCalendar[] {
+    const ctx = calendarContext(this.settings())
+    const absences = this.repo.absencesBetween(fromDay, toDay)
+    const out: DayCalendar[] = []
+    for (let d = fromDay; d <= toDay; d = addDays(d, 1)) out.push(calendarDay(d, absences, ctx))
+    return out
   }
 
   week(anyDay: string): WeekView {
@@ -380,11 +414,66 @@ export class AppService {
     const projects = new Map(this.repo.listProjects().map((p) => [p.id, p]))
     const states = { running: 0, local: 0, unbookable: 0, open: 0, pending: 0, booked: 0, error: 0 }
     for (const e of data.entries) states[entryState(e, projects.get(e.projectId), rows)]++
-    return { summary: weekSummary(first, data, this.clock()), states }
+    const calendar = this.calendar(first, addDays(first, 6))
+    const targets = calendar.map((c) => this.targetSec(c))
+    return { summary: weekSummary(first, data, this.clock(), targets), states, calendar }
   }
 
   todayNetSec(): number {
     return this.day(localDay(this.clock())).summary.netSec
+  }
+
+  // ---- absences (vacation) ------------------------------------------------
+
+  createAbsence(a: AbsenceInput): Absence {
+    this.validateAbsence(a, null)
+    return this.repo.createAbsence(a)
+  }
+
+  updateAbsence(id: number, a: AbsenceInput): Absence {
+    if (!this.repo.getAbsence(id)) throw new ValidationError('Abwesenheit nicht gefunden')
+    this.validateAbsence(a, id)
+    return this.repo.updateAbsence(id, a)
+  }
+
+  deleteAbsence(id: number): void {
+    this.repo.deleteAbsence(id)
+  }
+
+  private validateAbsence(a: AbsenceInput, id: number | null): void {
+    if (a.kind !== 'vacation') throw new ValidationError('Unbekannte Abwesenheit')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.firstDay) || !/^\d{4}-\d{2}-\d{2}$/.test(a.lastDay)) throw new ValidationError('Datum fehlt')
+    if (a.lastDay < a.firstDay) throw new ValidationError('Ende liegt vor dem Beginn')
+    if (a.half && a.firstDay !== a.lastDay) throw new ValidationError('Halber Tag geht nur für einen einzelnen Tag')
+    if (a.firstDay.slice(0, 4) !== a.lastDay.slice(0, 4)) throw new ValidationError('Bitte über den Jahreswechsel in zwei Einträgen buchen')
+    const clash = this.repo.absencesBetween(a.firstDay, a.lastDay).find((x) => x.id !== id)
+    if (clash) throw new ValidationError(`Überschneidet sich mit Urlaub ${clash.firstDay} – ${clash.lastDay}`)
+    if (absenceDays(a, calendarContext(this.settings())) === 0) throw new ValidationError('Im Zeitraum liegt kein Arbeitstag')
+  }
+
+  vacationAccount(year: number): VacationAccount {
+    const s = this.settings()
+    const ctx = calendarContext(s)
+    const today = localDay(this.clock())
+    const absences = this.repo
+      .absencesBetween(`${year}-01-01`, `${year}-12-31`)
+      .filter((a) => a.kind === 'vacation')
+      .map((a) => ({ ...a, days: absenceDays(a, ctx) }))
+    let taken = 0
+    let planned = 0
+    for (const a of absences) {
+      // Split a vacation that spans today into the part already taken and the rest.
+      if (a.lastDay <= today) taken += a.days
+      else if (a.firstDay > today) planned += a.days
+      else {
+        const done = absenceDays({ firstDay: a.firstDay, lastDay: today, half: a.half }, ctx)
+        taken += done
+        planned += a.days - done
+      }
+    }
+    const entitlement = s['vacation.daysPerYear']
+    const carryOver = s['vacation.carryOver'][String(year)] ?? 0
+    return { year, entitlement, carryOver, taken, planned, remaining: entitlement + carryOver - taken - planned, absences }
   }
 
   // ---- booking ----------------------------------------------------------------

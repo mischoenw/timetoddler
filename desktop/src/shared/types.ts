@@ -1,3 +1,5 @@
+import type { StateCode } from './holidays'
+
 /** All timestamps are epoch milliseconds (UTC). Days are local `YYYY-MM-DD`. */
 
 export type ProjectKind = 'youtrack' | 'local'
@@ -31,10 +33,14 @@ export interface Entry {
 
 export type EntryInput = Omit<Entry, 'id'>
 
+/** How an attendance block ended: normally, or leaving for a doctor's appointment. */
+export type PresenceEndReason = 'doctor'
+
 export interface Presence {
   id: number
   start: number
   end: number | null
+  endReason: PresenceEndReason | null
 }
 
 export interface Pause {
@@ -78,6 +84,17 @@ export interface Settings {
   'work.resumeAfterBreak': boolean
   /** Minimum length of one uninterrupted break on days over 6 h; 0 = off. */
   'work.minLunchBreakMin': number
+  /** Federal state for public holidays ('' = nationwide holidays only). */
+  'work.state': StateCode | ''
+  /** Include holidays that apply only in parts of the state. */
+  'work.regionalHolidays': boolean
+  /** Working weekdays, 0 = Sunday … 6 = Saturday. */
+  'work.workdays': number[]
+  /** Target working time per working day in minutes. */
+  'work.dailyTargetMin': number
+  'vacation.daysPerYear': number
+  /** Remaining days carried into a year, by year ("2026": 3.5). */
+  'vacation.carryOver': Record<string, number>
   'encoder.stepsPerDetent': number
   'encoder.reverse': boolean
   'youtrack.baseUrl': string
@@ -92,6 +109,12 @@ export const DEFAULT_SETTINGS: Settings = {
   'work.autoCome': true,
   'work.resumeAfterBreak': true,
   'work.minLunchBreakMin': 30,
+  'work.state': '',
+  'work.regionalHolidays': false,
+  'work.workdays': [1, 2, 3, 4, 5],
+  'work.dailyTargetMin': 480,
+  'vacation.daysPerYear': 30,
+  'vacation.carryOver': {},
   'encoder.stepsPerDetent': 4,
   'encoder.reverse': false,
   'youtrack.baseUrl': '',
@@ -127,6 +150,13 @@ export interface DaySummary {
   hints: Hint[]
   /** Presences that overlap another presence of this day. */
   overlapPresenceIds: number[]
+  /** Target for the day (0 on non-working days, holidays and vacation; half on a half vacation day). */
+  targetSec: number
+  /** Doctor's appointments credited as working time. */
+  doctorSec: number
+  /** Net work time plus credited doctor time; capped at the target if the day ended at the doctor. */
+  creditedSec: number
+  balanceSec: number
 }
 
 export interface WeekSummary {
@@ -134,6 +164,8 @@ export interface WeekSummary {
   /** projectId -> seconds per day (same order as `days`). */
   perProject: Record<number, number[]>
   netPerDay: number[]
+  targetPerDay: number[]
+  creditedPerDay: number[]
 }
 
 export interface RemoteProject {
@@ -198,9 +230,46 @@ export interface DayView {
   entries: (Entry & { booking: EntryBookingState; bookingError: string | null })[]
   presences: Presence[]
   pauses: Pause[]
+  calendar: DayCalendar
 }
 
 export interface WeekView {
   summary: WeekSummary
   states: Record<EntryBookingState, number>
+  calendar: DayCalendar[]
+}
+
+export type AbsenceKind = 'vacation'
+
+export interface Absence {
+  id: number
+  kind: AbsenceKind
+  /** Local days, inclusive. */
+  firstDay: string
+  lastDay: string
+  /** Half day; only for single-day absences. */
+  half: boolean
+  note: string
+}
+
+export type AbsenceInput = Omit<Absence, 'id'>
+
+export interface DayCalendar {
+  day: string
+  holiday: string | null
+  absence: { id: number; kind: AbsenceKind; half: boolean } | null
+  /** Configured working weekday and no public holiday. */
+  workday: boolean
+}
+
+export interface VacationAccount {
+  year: number
+  entitlement: number
+  carryOver: number
+  /** Days up to and including today. */
+  taken: number
+  /** Days after today. */
+  planned: number
+  remaining: number
+  absences: (Absence & { days: number })[]
 }

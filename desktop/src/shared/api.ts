@@ -1,4 +1,9 @@
 import type {
+  PresenceEndReason,
+  Absence,
+  AbsenceInput,
+  DayCalendar,
+  VacationAccount,
   DayView,
   Entry,
   EntryInput,
@@ -41,14 +46,14 @@ export interface TtApi {
   come(): void
   pauseStart(): void
   pauseEnd(): void
-  go(): void
-  goAt(at: number): void
+  go(reason?: PresenceEndReason | null): void
+  goAt(at: number, reason?: PresenceEndReason | null): void
 
   createEntry(e: EntryInput): Entry
   updateEntry(id: number, patch: Partial<EntryInput>): Entry
   deleteEntry(id: number): void
   createPresence(start: number, end: number | null): Presence
-  updatePresence(id: number, start: number, end: number | null): void
+  updatePresence(id: number, start: number, end: number | null, endReason?: PresenceEndReason | null): void
   deletePresence(id: number): void
   createPause(start: number, end: number | null): Pause
   updatePause(id: number, start: number, end: number | null): void
@@ -76,6 +81,12 @@ export interface TtApi {
   syncNow(): void
 
   exportCsv(kind: 'entries' | 'attendance', fromDay: string, toDay: string): string | null
+  calendar(fromDay: string, toDay: string): DayCalendar[]
+  vacationAccount(year: number): VacationAccount
+  createAbsence(a: AbsenceInput): Absence
+  updateAbsence(id: number, a: AbsenceInput): Absence
+  deleteAbsence(id: number): void
+
   toggleWindow(): void
 }
 
