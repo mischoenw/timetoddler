@@ -1,4 +1,5 @@
 import type {
+  DoctorVisit,
   PresenceEndReason,
   Absence,
   AbsenceInput,
@@ -383,6 +384,13 @@ export class AppService {
       presences: data.presences,
       pauses: data.pauses
     }
+  }
+
+  /** Credited doctor's appointments of [fromDay, toDay], for the attendance export. */
+  doctorVisitsBetween(fromDay: string, toDay: string): DoctorVisit[] {
+    const out: DoctorVisit[] = []
+    for (let d = fromDay; d <= toDay; d = addDays(d, 1)) out.push(...this.day(d).summary.doctorVisits)
+    return out
   }
 
   /** Target working time of a day: none on days off, half on a half vacation day. */

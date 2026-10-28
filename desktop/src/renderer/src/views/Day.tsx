@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '@shared/api'
-import { addDays, dayRange, formatHM, localDay } from '@shared/timecalc'
+import { addDays, dayRange, formatHM, formatTime, localDay } from '@shared/timecalc'
 import type { DayCalendar, DayView, PresenceEndReason, Project } from '@shared/types'
 import { api, useLive } from '../api'
 import { BookingBadge, DateTimeInput, useAction } from '../ui'
@@ -220,7 +220,8 @@ export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string
 
       <div className="stats">
         {s.targetSec > 0 && <Stat label="Soll" sec={s.targetSec} />}
-        {(s.targetSec > 0 || s.creditedSec > 0) && <Stat label={s.doctorSec > 0 ? 'Ist inkl. Arztbesuch' : 'Ist'} sec={s.creditedSec} />}
+        {(s.targetSec > 0 || s.creditedSec > 0) && <Stat label="Ist" sec={s.creditedSec} />}
+        {s.doctorSec > 0 && <Stat label="davon Arztbesuch" sec={s.doctorSec} cls="doctor" />}
         {(s.targetSec > 0 || s.creditedSec > 0) && (
           <Stat label="Saldo" sec={s.balanceSec} signed cls={s.balanceSec > 0 ? 'pos' : s.balanceSec < 0 ? 'neg' : ''} />
         )}
@@ -268,6 +269,17 @@ export function DayViewPage({ snap, day, setDay }: { snap: Snapshot; day: string
                 run(() => (i.kind === 'Pause' ? api.deletePause(i.id) : api.deletePresence(i.id)), 'Gelöscht')
               }
             />
+          ))}
+          {s.doctorVisits.map((v) => (
+            <tr key={`doctor-${v.start}`} className="doctor" title="Zählt als Arbeitszeit. Ändern über die Art des Gehens bzw. das nächste Kommen.">
+              <td>
+                Arztbesuch{v.untilTarget && <span className="muted"> (bis Sollzeit)</span>}
+              </td>
+              <td>{formatTime(v.start)}</td>
+              <td>{formatTime(v.end)}</td>
+              <td>{formatHM((v.end - v.start) / 1000)}</td>
+              <td />
+            </tr>
           ))}
         </tbody>
       </table>

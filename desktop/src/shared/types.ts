@@ -154,6 +154,7 @@ export interface DaySummary {
   targetSec: number
   /** Doctor's appointments credited as working time. */
   doctorSec: number
+  doctorVisits: DoctorVisit[]
   /** Net work time plus credited doctor time; capped at the target if the day ended at the doctor. */
   creditedSec: number
   balanceSec: number
@@ -166,6 +167,15 @@ export interface WeekSummary {
   netPerDay: number[]
   targetPerDay: number[]
   creditedPerDay: number[]
+  doctorPerDay: number[]
+}
+
+/** A doctor's appointment credited as working time. */
+export interface DoctorVisit {
+  start: number
+  end: number
+  /** No return that day: runs until the day's target is reached. */
+  untilTarget: boolean
 }
 
 export interface RemoteProject {

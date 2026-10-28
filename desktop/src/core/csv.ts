@@ -1,5 +1,5 @@
-import type { DayCalendar, Entry, EntryBookingState, Pause, Presence, Project } from '@shared/types'
-import { formatHM, formatTime, splitByDay } from '@shared/timecalc'
+import type { DayCalendar, DoctorVisit, Entry, EntryBookingState, Pause, Presence, Project } from '@shared/types'
+import { formatHM, formatTime, localDay, splitByDay } from '@shared/timecalc'
 import { issueOf } from './booking'
 
 const STATE_LABEL: Record<EntryBookingState, string> = {
@@ -51,7 +51,13 @@ export function entriesCsv(
 }
 
 /** Attendance, pauses and days off (public holidays, vacation) in date order. */
-export function attendanceCsv(presences: Presence[], pauses: Pause[], now: number, calendar: DayCalendar[] = []): string {
+export function attendanceCsv(
+  presences: Presence[],
+  pauses: Pause[],
+  now: number,
+  calendar: DayCalendar[] = [],
+  doctorVisits: DoctorVisit[] = []
+): string {
   const out = [line(['Datum', 'Art', 'Start', 'Ende', 'Dauer', 'Minuten'])]
   const rows: { day: string; at: number; cells: (string | number)[] }[] = []
   for (const r of [...presences.map((p) => ({ kind: 'Anwesenheit', ...p })), ...pauses.map((p) => ({ kind: 'Pause', ...p }))]) {
@@ -63,6 +69,14 @@ export function attendanceCsv(presences: Presence[], pauses: Pause[], now: numbe
         cells: [seg.day, r.kind, formatTime(seg.start), r.end === null ? '' : formatTime(seg.end), formatHM(sec), Math.round(sec / 60)]
       })
     }
+  }
+  for (const v of doctorVisits) {
+    const sec = Math.floor((v.end - v.start) / 1000)
+    rows.push({
+      day: localDay(v.start),
+      at: v.start,
+      cells: [localDay(v.start), v.untilTarget ? 'Arztbesuch (bis Sollzeit)' : 'Arztbesuch', formatTime(v.start), formatTime(v.end), formatHM(sec), Math.round(sec / 60)]
+    })
   }
   for (const c of calendar) {
     if (c.holiday) rows.push({ day: c.day, at: -1, cells: [c.day, `Feiertag: ${c.holiday}`, '', '', '', ''] })

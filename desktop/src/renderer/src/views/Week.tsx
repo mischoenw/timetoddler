@@ -96,6 +96,17 @@ export function WeekViewPage(props: { snap: Snapshot; day: string; setDay: (d: s
               <strong>{formatHM(total(w.netPerDay))}</strong>
             </td>
           </tr>
+          {w.doctorPerDay.some((x) => x > 0) && (
+            <tr>
+              <td>Arztbesuch (zählt als Arbeitszeit)</td>
+              {w.doctorPerDay.map((s, i) => (
+                <td key={i} className="num">
+                  {s ? formatHM(s) : ''}
+                </td>
+              ))}
+              <td className="num">{formatHM(total(w.doctorPerDay))}</td>
+            </tr>
+          )}
           <tr>
             <td>Soll</td>
             {w.targetPerDay.map((s, i) => (

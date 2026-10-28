@@ -1,4 +1,4 @@
-import type { DaySummary, Entry, Hint, Pause, Presence, WeekSummary } from './types'
+import type { DaySummary, DoctorVisit, Entry, Hint, Pause, Presence, WeekSummary } from './types'
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
@@ -125,12 +125,13 @@ export function daySummary(day: string, data: TimeData, now: number, opts: HintO
   const targetSec = opts.targetSec ?? 0
   // Every block touching the day counts here, however short (leaving right after coming is still a visit).
   const touching = data.presences.filter((p) => p.start < to && (p.end ?? now) >= from).sort((a, b) => a.start - b.start)
-  const { doctorSec, creditedSec } = credited(touching, netSec, targetSec, from, to, now)
+  const { doctorSec, creditedSec, doctorVisits } = credited(touching, netSec, targetSec, from, to, now)
 
   return {
     day,
     targetSec,
     doctorSec,
+    doctorVisits,
     creditedSec,
     balanceSec: creditedSec - targetSec,
     presenceSec,
@@ -155,17 +156,28 @@ function credited(
   from: number,
   to: number,
   now: number
-): { doctorSec: number; creditedSec: number } {
+): { doctorSec: number; creditedSec: number; doctorVisits: DoctorVisit[] } {
   let doctorSec = 0
-  let noReturn = false
+  const doctorVisits: DoctorVisit[] = []
+  let leftFor: number | null = null
   for (const p of inDay) {
     if (p.endReason !== 'doctor' || p.end === null) continue
     const next = inDay.find((q) => q !== p && q.start >= p.end!)
-    if (next) doctorSec += overlapSec(p.end, next.start, from, to, now)
-    else noReturn = true
+    if (next) {
+      const sec = overlapSec(p.end, next.start, from, to, now)
+      if (sec > 0) doctorVisits.push({ start: Math.max(p.end, from), end: Math.min(next.start, to), untilTarget: false })
+      doctorSec += sec
+    } else {
+      leftFor = p.end
+    }
   }
-  if (noReturn && targetSec > 0) return { doctorSec: Math.max(0, targetSec - netSec - doctorSec), creditedSec: targetSec }
-  return { doctorSec, creditedSec: netSec + doctorSec }
+  if (leftFor !== null && targetSec > 0) {
+    // Counts as at the doctor until the target is reached; never beyond it.
+    const rest = Math.max(0, targetSec - netSec - doctorSec)
+    if (rest > 0) doctorVisits.push({ start: leftFor, end: Math.min(leftFor + rest * 1000, to), untilTarget: true })
+    return { doctorSec: doctorSec + rest, creditedSec: targetSec, doctorVisits }
+  }
+  return { doctorSec, creditedSec: netSec + doctorSec, doctorVisits }
 }
 
 export function weekSummary(anyDay: string, data: TimeData, now: number, targets: number[] = []): WeekSummary {
@@ -175,16 +187,18 @@ export function weekSummary(anyDay: string, data: TimeData, now: number, targets
   const netPerDay: number[] = []
   const targetPerDay: number[] = []
   const creditedPerDay: number[] = []
+  const doctorPerDay: number[] = []
   days.forEach((day, i) => {
     const s = daySummary(day, data, now, { targetSec: targets[i] ?? 0 })
     netPerDay.push(s.netSec)
     targetPerDay.push(s.targetSec)
     creditedPerDay.push(s.creditedSec)
+    doctorPerDay.push(s.doctorSec)
     for (const [pid, sec] of Object.entries(s.perProject)) {
       ;(perProject[Number(pid)] ??= Array(7).fill(0))[i] = sec
     }
   })
-  return { days, perProject, netPerDay, targetPerDay, creditedPerDay }
+  return { days, perProject, netPerDay, targetPerDay, creditedPerDay, doctorPerDay }
 }
 
 /** `H:MM` */

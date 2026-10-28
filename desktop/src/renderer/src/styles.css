@@ -177,3 +177,5 @@ th .daytag.vac { color: var(--ok); }
 select.reason { margin-left: 8px; font-size: 12px; padding: 2px 4px; }
 td.ok { color: var(--ok); }
 td.err { color: var(--err); }
+tr.doctor td { color: #6f42c1; }
+.stat.doctor .v { color: #6f42c1; }

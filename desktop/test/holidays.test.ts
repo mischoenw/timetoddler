@@ -147,3 +147,26 @@ describe('doctor visit edge cases', () => {
     expect(svc.day('2026-10-21').summary).toMatchObject({ creditedSec: 8 * 3600, balanceSec: 0 })
   })
 })
+
+describe('doctor visits are listed separately', () => {
+  it('lists returned and open-ended visits with times', async () => {
+    const { svc, clock } = await setup('2026-10-21 08:00')
+    svc.come()
+    clock.set('2026-10-21 09:00')
+    svc.go('doctor')
+    clock.set('2026-10-21 10:00')
+    svc.come()
+    clock.set('2026-10-21 12:00')
+    svc.go('doctor') // no return: 3 h worked + 1 h doctor, 4 h left until the 8 h target
+    clock.set('2026-10-21 19:00')
+    const s = svc.day('2026-10-21').summary
+    expect(s).toMatchObject({ netSec: 3 * 3600, doctorSec: 5 * 3600, creditedSec: 8 * 3600, balanceSec: 0 })
+    expect(s.doctorVisits.map((v) => [new Date(v.start).getHours(), new Date(v.end).getHours(), v.untilTarget])).toEqual([
+      [9, 10, false],
+      [12, 16, true]
+    ])
+    const csv = attendanceCsv(svc.day('2026-10-21').presences, [], clock.t, [], svc.doctorVisitsBetween('2026-10-21', '2026-10-21'))
+    expect(csv).toContain('2026-10-21;Arztbesuch;09:00;10:00;1:00;60')
+    expect(csv).toContain('2026-10-21;Arztbesuch (bis Sollzeit);12:00;16:00;4:00;240')
+  })
+})

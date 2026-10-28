@@ -184,7 +184,7 @@ export function createApi(deps: ApiDeps): MainApi {
         csv = entriesCsv(entries, projects, states, now)
       } else {
         const a = svc.attendanceBetween(from, to)
-        csv = attendanceCsv(a.presences, a.pauses, now, svc.calendar(from, to))
+        csv = attendanceCsv(a.presences, a.pauses, now, svc.calendar(from, to), svc.doctorVisitsBetween(from, to))
       }
       // BOM so Excel detects UTF-8
       writeFileSync(res.filePath, '﻿' + csv, 'utf8')
